@@ -11,12 +11,12 @@ class DefaultConfig(object):
     validation_step=1
     crop_height=256
     crop_width=256
-    batch_size=6   
+    batch_size=1
     
     
     data='E:\dataset'
     dataset="data_med4"
-    log_dirs='E:\workplace\pycharm\CPFNet_Project\Log\OCT'
+    log_dirs='E:\workspace\python\CPFNet_Project\Log\OCT'
     
     lr=0.01    
     lr_mode= 'poly'
@@ -31,7 +31,7 @@ class DefaultConfig(object):
     
     k_fold=4
     test_fold=4
-    num_workers=4
+    num_workers=0
     
     cuda='0'
     use_gpu=True

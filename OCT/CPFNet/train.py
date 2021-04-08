@@ -1,4 +1,4 @@
-
+# coding=gbk
 from torch.utils.data import DataLoader
 from dataset.OCT import OCT
 import socket
@@ -110,9 +110,9 @@ def val(args, model, dataloader):
         return dice1,ACC
 
 def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
-    comments=os.getcwd().split('/')[-1]
+    #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-    log_dir = os.path.join(args.log_dirs, comments+'_'+current_time + '_' + socket.gethostname())
+    log_dir = os.path.join(args.log_dirs, current_time + '_' + socket.gethostname())
     writer = SummaryWriter(log_dir=log_dir)
     step = 0
     best_pred=0.0
@@ -147,7 +147,7 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
             optimizer.step()
             tq.update(args.batch_size)
             train_loss += loss.item()
-            tq.set_postfix(loss='%.6f' % (train_loss/(i+1)))
+            tq.set_postfix(loss='%.6f' % (train_loss/(i+1))) #显示进度条信息
             step += 1
             if step%10==0:
                 writer.add_scalar('Train/loss_step', loss, step)
@@ -245,8 +245,7 @@ def main(mode='train',args=None):
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
     
-    
-    
+
     #load model
     model_all={'BaseNet':CPFNet(out_planes=args.num_classes),'UNet':UNet(in_channels=1, n_classes=args.num_classes)}
     model=model_all[args.net_work]

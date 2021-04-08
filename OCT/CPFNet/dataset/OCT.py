@@ -59,7 +59,6 @@ class OCT(torch.utils.data.Dataset):
         img = Image.open(self.image_lists[index])
         img = self.resize_img(img)
         img = np.array(img)
-
         length=len(self.image_lists)
         labels = self.label_lists[index]
         #load label
