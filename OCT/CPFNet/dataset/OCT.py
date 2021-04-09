@@ -29,7 +29,7 @@ class OCT(torch.utils.data.Dataset):
     Unlabelled=[0,0,0]
     Aorta = [255,255,255]
     COLOR_DICT = np.array([Unlabelled,Aorta])
-    def __init__(self, dataset_path,scale=(448,256), mode='train'):
+    def __init__(self, dataset_path,scale=(256,448), mode='train'):
         super().__init__()
         self.mode = mode
         self.img_path=dataset_path+'/'+mode+'/img'

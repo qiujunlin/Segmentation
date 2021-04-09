@@ -25,7 +25,7 @@ class DefaultConfig(object):
     weight_decay = 1e-4#
 
 
-    mode='test'
+    mode='train'
     num_classes=2
 
     
