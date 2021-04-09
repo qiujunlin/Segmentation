@@ -1,22 +1,11 @@
-# CPFNet_Project
+# CPFNet_Projec
+实验结果
+Start Validation!
+Dice1: 0.783,ACC: 0.930: 100%|██████████| 86/86 [00:01<00:00, 66.11it/s]
+Dice1: 0.7827096113788492
+Acc: 0.9304280835528707
 
-## Introduction
-This repository is for the PAPER: ***CPFNet: Context Pyramid Fusion Network for Medical Image Segmentation***, which has been accepted by IEEE TRANSACTIONS ON MEDICAL IMAGING 
 
-
-The author list： Shuanglang Feng, Heming Zhao, Fei Shi, Xuena Cheng, Meng Wang, Yuhui Ma, Dehui Xiang, Weifang Zhu and Xinjian Chen from SooChow University.
-
-**The source code is now available!**
-## citation
-
-```
-@inproceedings{feng2020cpfnet,
-    author={Shuanglang Feng and Heming Zhao and Fei Shi and Xuena Cheng and Meng Wang and Yuhui Ma and Dehui Xiang and Weifang Zhu and Xinjian Chen},
-    title={CPFNet: Context Pyramid Fusion Network for Medical Image Segmentation},
-    booktitle={IEEE TRANSACTIONS ON MEDICAL IMAGING},   
-    year={2020},   
-}
-```
 ## Folder
 - `Dataset`: the folder where dataset is placed.
 - `OCT`: the folder where model and model environment code are placed,`OCT` is the name of task. 

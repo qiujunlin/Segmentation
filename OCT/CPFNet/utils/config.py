@@ -5,18 +5,18 @@ Created on Tue Mar 12 14:03:52 2019
 @author: Administrator
 """
 class DefaultConfig(object):
-    num_epochs=80
+    num_epochs=200
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
     crop_height=256
-    crop_width=256
+    crop_width=448
     batch_size=6   
     
     
-    data='E:\dataset'
+    data='/root/qiu/dataset'
     dataset="data_med4"
-    log_dirs='E:\workplace\pycharm\CPFNet_Project\Log\OCT'
+    log_dirs='/root/PycharmProjects/CPFNet_Project/Log'
     
     lr=0.01    
     lr_mode= 'poly'
@@ -25,17 +25,17 @@ class DefaultConfig(object):
     weight_decay = 1e-4#
 
 
-    mode='train'
+    mode='test'
     num_classes=2
 
     
     k_fold=4
     test_fold=4
-    num_workers=4
+    num_workers=8
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='/home/FENGsl/CPFNet_Project/OCT/CPFNet/checkpoints/model_004_0.7985.pth.tar'
+    pretrained_model_path='/root/PycharmProjects/CPFNet_Project/OCT/CPFNet/checkpoints/model_010_0.7924.pth.tar'
     save_model_path='./checkpoints'
     
 
