@@ -7,8 +7,6 @@ Created on Wed Sep 19 10:59:53 2018
 import numpy as np
 import os 
 from PIL import Image
-#path_true=r'D:\task\projects\cabunet\keras_cabunet\aug\data\testset\label\4'
-#path_predict=r'D:\task\projects\cabunet\keras_cabunet\aug\result3\2\4'
 path_true=r'/root/qiu/dataset/data_med4/test/mask'
 path_predict=r'/root/qiu/dataset/data_med4/test/predict'
 TP=FPN=0
@@ -49,26 +47,3 @@ print("DICE",dice)
 print('glob_Jaccard',TP/(FPN-TP))
 print('single_Jaccard',sum(Jaccard)/len(Jaccard))
             
-            
-#            
-##            pre_npy=np.load(pre_file_path)
-##            true_npy=np.load(true_file_path)
-#            for i in range(1,4):
-#                pre_npy_s=np.zeros(pre_npy.shape)
-#                true_npy_s=np.zeros(true_npy.shape)
-#                
-#                pre_npy_s[pre_npy==i]=1 
-#                true_npy_s[true_npy==i]=1
-#                TP=np.sum(np.array(pre_npy_s,dtype=np.int32)&np.array(true_npy_s,dtype=np.int32))
-#                FPN=np.sum(np.array(pre_npy_s,dtype=np.int32)|np.array(true_npy_s,dtype=np.int32))
-#                print('%d_TP:' %num,TP)
-#                print('%d_FPN:' %num,FPN)
-##                if FPN!=0:
-#                    
-#                if np.sum(true_npy_s)!=0:
-#                    dice_cof=2*TP/(TP+FPN)
-#                    dice.append(dice_cof)
-#dice=np.array(dice)
-#print(dice)
-#dice_mean=np.mean(dice)
-#print(dice_mean)

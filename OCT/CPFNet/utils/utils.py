@@ -79,7 +79,7 @@ def eval_multi_seg(predict, target,num_classes):
     pred_seg = predict.data.cpu().numpy() # n h w
     label_seg = target.data.cpu().numpy().astype(dtype=np.int) # n h w
     assert(pred_seg.shape == label_seg.shape)
-    acc=(pred_seg==label_seg).sum()/(pred_seg.shape[0]*pred_seg.shape[1]*pred_seg.shape[2])
+    acc=(pred_seg==label_seg).sum()/(pred_seg.shape[0]*pred_seg.shape[1]*pred_seg.shape[2])  #acc 就是所有相同的像素值占总像素的大小
     
     # Dice = []
     # Precsion = []
@@ -90,7 +90,7 @@ def eval_multi_seg(predict, target,num_classes):
     # n = pred_seg.shape[0]
     Dice=[]
     True_label=[]
-    for classes in range(1,num_classes):
+    for classes in range(1,num_classes):  # 循环遍历说有的类型  没有遍历0 的原因是 0 是背景 说以就不便利
         overlap=((pred_seg==classes)*(label_seg==classes)).sum()
         union=(pred_seg==classes).sum()+(label_seg==classes).sum()
         Dice.append((2*overlap+0.1)/(union+0.1))

@@ -10,7 +10,7 @@ class DefaultConfig(object):
     checkpoint_step=5
     validation_step=1
     crop_height=256
-    crop_width=256
+    crop_width=448
     batch_size=1
     
     

@@ -45,12 +45,12 @@ def val(args, model, dataloader):
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
                 label = labels[0].cuda()
-            slice_num=labels[1].long().item()
+            slice_num=labels[1].long().item()  #获取总共的label数量
             # get RGB predict image
             
-            aux_predict,predicts = model(data)
-            predict=torch.argmax(torch.exp(predicts),dim=1)
-            batch_size=predict.size()[0]
+            aux_predict,predicts = model(data)  #预测结果  经过softmax后的
+            predict=torch.argmax(torch.exp(predicts),dim=1)  # n h w 获取的是结果 预测的结果是属于哪一类的
+            batch_size=predict.size()[0]  # 当前的批量大小
 
             counter+=batch_size
             if counter<=slice_num:
