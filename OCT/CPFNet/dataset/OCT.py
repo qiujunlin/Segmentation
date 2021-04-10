@@ -7,7 +7,7 @@ from torchvision import transforms
 from torchvision.transforms import functional as F
 #import cv2
 from PIL import Image
-# import pandas as pd
+# import pandas as pdSegmentationMapOnImage
 import numpy as np
 from imgaug import augmenters as iaa
 import imgaug as ia
@@ -29,7 +29,7 @@ class OCT(torch.utils.data.Dataset):
     Unlabelled=[0,0,0]
     Aorta = [255,255,255]
     COLOR_DICT = np.array([Unlabelled,Aorta])
-    def __init__(self, dataset_path,scale=(448,256), mode='train'):
+    def __init__(self, dataset_path,scale=(256,448), mode='train'):
         super().__init__()
         self.mode = mode
         self.img_path=dataset_path+'/'+mode+'/img'
@@ -79,9 +79,9 @@ class OCT(torch.utils.data.Dataset):
             # augment image and label
             if self.mode == 'train' or self.mode == 'train_val' :
                 seq_det = self.flip.to_deterministic()#固定变换
-                segmap = ia.SegmentationMapOnImage(label, shape=label.shape, nb_classes=4)
+                segmap = ia.SegmentationMapsOnImage(label, shape=label.shape, nb_classes=4)
                 img = seq_det.augment_image(img)
-                label = seq_det.augment_segmentation_maps([segmap])[0].get_arr_int().astype(np.uint8)
+                label = seq_det.augment_segmentation_maps([segmap])[0].get_arr().astype(np.uint8)
 
             label_img=torch.from_numpy(label.copy()).float()
             if self.mode == 'val':
@@ -134,7 +134,7 @@ class OCT(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-   data = OCT(r'E:\dataset\data_med4', (512, 512),mode='val')
+   data = OCT(r'/root/qiu/dataset/data_med4', (512, 512),mode='train')
    print(data.__getitem__(0))
 
 

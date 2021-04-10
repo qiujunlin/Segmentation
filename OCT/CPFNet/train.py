@@ -196,7 +196,7 @@ def test(model,dataloader, args):
             pred_RGB=OCT.COLOR_DICT[pred.astype(np.uint8)]
             
             for index,item in enumerate(label_path):
-                save_img_path=label_path[index].replace('test_mask',comments+'_mask')
+                save_img_path=label_path[index].replace('mask','predict')
                 if not os.path.exists(os.path.dirname(save_img_path)):
                     os.makedirs(os.path.dirname(save_img_path))
                 img=Image.fromarray(pred_RGB[index].squeeze().astype(np.uint8))

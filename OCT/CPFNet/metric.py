@@ -9,10 +9,13 @@ import os
 from PIL import Image
 #path_true=r'D:\task\projects\cabunet\keras_cabunet\aug\data\testset\label\4'
 #path_predict=r'D:\task\projects\cabunet\keras_cabunet\aug\result3\2\4'
-path_true=r'G:\KeTi\JBHI_pytorch\BaseNet\dataset\path\to\PiFu\mask\f1'
-path_predict=r'G:\KeTi\JBHI_pytorch\BaseNet_Full_channel_impore\dataset\test\f1'
+path_true=r'/root/qiu/dataset/data_med4/test/mask'
+path_predict=r'/root/qiu/dataset/data_med4/test/predict'
 TP=FPN=0
 Jaccard=[]
+from torchvision import  transforms
+scale=(256,448)
+resize_label = transforms.Resize(scale, Image.NEAREST)
 for roots,dirs,files in os.walk(path_predict):
     if files:
 #        dice=[]
@@ -20,10 +23,13 @@ for roots,dirs,files in os.walk(path_predict):
         for file in files:
 #            num=num+1
             pre_file_path=os.path.join(roots,file)
-            true_file_path=os.path.join(path_true,file)
-            img_pre = np.array(Image.open(pre_file_path).convert("L"))
+            true_file_path=os.path.join(path_true,file[:-11]+'mask.png')
+            img_pre = Image.open(pre_file_path).convert("L")
+            img_pre = np.array(img_pre)
             img_pre[img_pre==255]=1
-            img_true = np.array(Image.open(true_file_path).convert("L"))
+            img_true = Image.open(true_file_path).convert("L")
+            img_true =  resize_label(img_true)
+            img_true = np.array(img_true)
             img_true[img_true==255]=1
 #            print(img_pre.shape)
 #            print(img_true.shape)
@@ -36,8 +42,6 @@ for roots,dirs,files in os.walk(path_predict):
             Jaccard.append(single_I/single_U)
 
 
-
-            
 dice = 2*TP/FPN
 print('TP:',TP)
 print('FPN:',FPN)           
