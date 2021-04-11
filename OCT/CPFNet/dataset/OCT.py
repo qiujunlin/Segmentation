@@ -36,17 +36,17 @@ class OCT(torch.utils.data.Dataset):
         self.mask_path=dataset_path+'/'+mode+'/mask'
         self.image_lists,self.label_lists=self.read_list(self.img_path)
         self.flip =iaa.SomeOf((1,4),[
-             iaa.Fliplr(0.5),
-             iaa.Flipud(0.1),
-             iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),
+             iaa.Fliplr(0.5),   # #50%的概率水平翻转
+             iaa.Flipud(0.1),   #50%的概率垂直翻转
+             iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  #锐化
              iaa.Affine(rotate=(-5, 5),
-                        scale={"x": (0.9, 1.1), "y": (0.8, 1.2)}),
-             iaa.OneOf([
+                        scale={"x": (0.9, 1.1), "y": (0.8, 1.2)}),  # 即仿射变换 rotate 随机旋转
+             iaa.OneOf([             # 每次从一系列Augmenters中选择一个来变换。
                     iaa.GaussianBlur((0, 3.0)), # blur images with a sigma between 0 and 3.0
                     iaa.AverageBlur(k=(3, 5)), # blur image using local means with kernel sizes between 2 and 7
                     iaa.MedianBlur(k=(3, 5)), # blur image using local medians with kernel sizes between 2 and 7
                 ]),
-             iaa.ContrastNormalization((0.5, 1.5))], random_order=True)
+             iaa.ContrastNormalization((0.5, 1.5))], random_order=True)  #调整对比度，0.5表示和128的差值部分会处以2降低对比度
         # resize
         self.resize_label = transforms.Resize(scale, Image.NEAREST)
         self.resize_img = transforms.Resize(scale, Image.BILINEAR)
@@ -78,10 +78,10 @@ class OCT(torch.utils.data.Dataset):
 
             # augment image and label
             if self.mode == 'train' or self.mode == 'train_val' :
-                seq_det = self.flip.to_deterministic()#固定变换
-                segmap = ia.SegmentationMapsOnImage(label, shape=label.shape, nb_classes=4)
-                img = seq_det.augment_image(img)
-                label = seq_det.augment_segmentation_maps([segmap])[0].get_arr().astype(np.uint8)
+                seq_det = self.flip.to_deterministic()#固定变换   #确定一个数据增强的序列
+                segmap = ia.SegmentationMapsOnImage(label, shape=label.shape, nb_classes=4)  #将图片转换为SegmentationMapOnImage类型  固定操作 对了的
+                img = seq_det.augment_image(img)  #将方法应用在原图像上
+                label = seq_det.augment_segmentation_maps([segmap])[0].get_arr().astype(np.uint8)  # 将方法应用在分割标签上，并且转换成np类型
 
             label_img=torch.from_numpy(label.copy()).float()
             if self.mode == 'val':

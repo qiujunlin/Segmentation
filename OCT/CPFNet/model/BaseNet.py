@@ -8,7 +8,7 @@ Created on Wed Apr 10 09:57:49 2019
 import torch
 from torchvision import models
 import torch.nn as nn
-from model.resnet import resnet34
+from resnet import resnet34
 # from resnet import resnet34
 # import resnet
 from torch.nn import functional as F
