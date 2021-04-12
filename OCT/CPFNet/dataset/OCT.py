@@ -46,7 +46,7 @@ class OCT(torch.utils.data.Dataset):
                     iaa.AverageBlur(k=(3, 5)), # blur image using local means with kernel sizes between 2 and 7
                     iaa.MedianBlur(k=(3, 5)), # blur image using local medians with kernel sizes between 2 and 7
                 ]),
-             iaa.ContrastNormalization((0.5, 1.5))], random_order=True)  #调整对比度，0.5表示和128的差值部分会处以2降低对比度
+             iaa.contrast.LinearContrast((0.5, 1.5))], random_order=True)  #调整对比度，0.5表示和128的差值部分会处以2降低对比度
         # resize
         self.resize_label = transforms.Resize(scale, Image.NEAREST)
         self.resize_img = transforms.Resize(scale, Image.BILINEAR)
@@ -79,10 +79,10 @@ class OCT(torch.utils.data.Dataset):
             # augment image and label
             if self.mode == 'train' or self.mode == 'train_val' :
                 seq_det = self.flip.to_deterministic()#固定变换   #确定一个数据增强的序列
-                segmap = ia.SegmentationMapsOnImage(label, shape=label.shape, nb_classes=4)  #将图片转换为SegmentationMapOnImage类型  固定操作 对了的
+                segmap = ia.SegmentationMapsOnImage(label, shape=label.shape)  #将图片转换为SegmentationMapOnImage类型  固定操作 对了的
                 img = seq_det.augment_image(img)  #将方法应用在原图像上
                 label = seq_det.augment_segmentation_maps([segmap])[0].get_arr().astype(np.uint8)  # 将方法应用在分割标签上，并且转换成np类型
-
+           # num1  = label.sum()
             label_img=torch.from_numpy(label.copy()).float()
             if self.mode == 'val':
                  img_num=len(os.listdir(os.path.dirname(labels)))
@@ -134,7 +134,7 @@ class OCT(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-   data = OCT(r'/root/qiu/dataset/data_med4', (512, 512),mode='train')
+   data = OCT(r'E:\dataset\data_med4', (256, 448),mode='val')
    print(data.__getitem__(0))
 
 

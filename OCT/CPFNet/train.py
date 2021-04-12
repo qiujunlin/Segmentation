@@ -21,8 +21,8 @@ import torch.backends.cudnn as cudnn
 def val(args, model, dataloader):
     print('\n')
     print('Start Validation!')
-    with torch.no_grad():
-        model.eval()
+    with torch.no_grad():#在评价过程中停止求梯度  加快速度的作用
+        model.eval()  #!!!评价函数必须使用
         tbar = tqdm.tqdm(dataloader, desc='\r')
 
         total_Dice=[]
@@ -45,17 +45,17 @@ def val(args, model, dataloader):
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
                 label = labels[0].cuda()
-            slice_num=labels[1].long().item()  #获取总共的label数量
+            slice_num=labels[1].long().item()  #获取总共的label数量  86
             # get RGB predict image
             
-            aux_predict,predicts = model(data)  #预测结果  经过softmax后的
-            predict=torch.argmax(torch.exp(predicts),dim=1)  # n h w 获取的是结果 预测的结果是属于哪一类的
-            batch_size=predict.size()[0]  # 当前的批量大小
+            aux_predict,predicts = model(data)  #预测结果  经过softmax后的 float32
+            predict=torch.argmax(torch.exp(predicts),dim=1) # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
+            batch_size=predict.size()[0]  # 当前的批量大小   1
 
-            counter+=batch_size
-            if counter<=slice_num:
+            counter+=batch_size  # 每次加一
+            if counter<=slice_num:  #如果没有达到 总数
                 cur_cube.append(predict)  #(1,h,w)
-                cur_label_cube.append(label)
+                cur_label_cube.append(label) #
                 if counter==slice_num:
                     end_flag=True
                     counter=0
@@ -75,11 +75,11 @@ def val(args, model, dataloader):
 
             if end_flag:
                 end_flag=False
-                predict_cube=torch.stack(cur_cube,dim=0).squeeze() # (n,h,w)
-                label_cube=torch.stack(cur_label_cube,dim=0).squeeze()
+                predict_cube=torch.stack(cur_cube,dim=0).squeeze() # (n,h,w) int 64 tensor
+                label_cube=torch.stack(cur_label_cube,dim=0).squeeze()#  n hw float32 tensor
                 cur_cube=[]
                 cur_label_cube=[]
-                if counter!=0:
+                if counter!=0: #w为0
                     cur_cube.append(first_p)
                     cur_label_cube.append(first_l)
 
@@ -192,9 +192,11 @@ def test(model,dataloader, args):
                 # label = label.cuda()
             aux_pred,predict = model(data)
             predict=torch.argmax(torch.exp(predict),dim=1)
+
             pred=predict.data.cpu().numpy()
+            sum1 =  (pred==1).sum()
             pred_RGB=OCT.COLOR_DICT[pred.astype(np.uint8)]
-            
+            sum2 = (pred_RGB[0,:,:,0]==255).sum()
             for index,item in enumerate(label_path):
                 save_img_path=label_path[index].replace('mask','predict')
                 if not os.path.exists(os.path.dirname(save_img_path)):
@@ -247,7 +249,7 @@ def main(mode='train',args=None):
     
 
     #load model
-    model_all={'BaseNet':CPFNet(out_planes=args.num_classes),'UNet':UNet(in_channels=1, n_classes=args.num_classes)}
+    model_all={'BaseNet':CPFNet(out_planes=args.num_classes),'UNet':UNet(in_channels=3, n_classes=args.num_classes)}
     model=model_all[args.net_work]
     cudnn.benchmark = True
     # model._initialize_weights()

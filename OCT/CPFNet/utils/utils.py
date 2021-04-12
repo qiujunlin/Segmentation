@@ -1,4 +1,6 @@
+# coding=gbk
 #import torch.nn as nn
+
 import torch
 from torch.nn import functional as F
 #from PIL import Image
@@ -76,11 +78,12 @@ def compute_score(predict, target, forground = 1,smooth=1):
 
 def eval_multi_seg(predict, target,num_classes):
     # pred_seg=torch.argmax(torch.exp(predict),dim=1).int()
-    pred_seg = predict.data.cpu().numpy() # n h w
-    label_seg = target.data.cpu().numpy().astype(dtype=np.int) # n h w
+    pred_seg = predict.data.cpu().numpy() # n h w int64 ndarray
+    label_seg = target.data.cpu().numpy().astype(dtype=np.int) # n h w float32  -> int32 ndarray
     assert(pred_seg.shape == label_seg.shape)
     acc=(pred_seg==label_seg).sum()/(pred_seg.shape[0]*pred_seg.shape[1]*pred_seg.shape[2])  #acc 就是所有相同的像素值占总像素的大小
-    
+    num1 =  pred_seg[0].sum()
+    num2 = label_seg[0].sum()
     # Dice = []
     # Precsion = []
     # Jaccard = []

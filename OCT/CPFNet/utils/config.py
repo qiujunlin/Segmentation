@@ -25,7 +25,7 @@ class DefaultConfig(object):
     weight_decay = 1e-4#
 
 
-    mode='train'
+    mode='test'
     num_classes=2
 
     
@@ -35,7 +35,7 @@ class DefaultConfig(object):
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='/home/FENGsl/CPFNet_Project/OCT/CPFNet/checkpoints/model_004_0.7985.pth.tar'
+    pretrained_model_path='F:/checkpoints/2.tar'
     save_model_path='./checkpoints'
     
 
