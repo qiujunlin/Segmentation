@@ -95,5 +95,15 @@ def t():
     print(pred_seg.sum())
     print(img_true.sum())
     print(img_pre.sum())
-
-t()
+def bceloss():
+    a= torch.ones((1,1,2,2))
+    b =torch.ones((1,1,2,2))
+    bce_logit = nn.BCEWithLogitsLoss()
+    losss  = bce_logit(a,b)
+    print(losss)
+def u():
+    import  torch.nn.functional as F
+    a =  torch.Tensor([0.98,0.1])
+    c = torch.sigmoid(a)
+    print(c)
+u()

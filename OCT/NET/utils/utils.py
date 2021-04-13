@@ -18,7 +18,7 @@ def save_checkpoint(state,best_pred, epoch,is_best,checkpoint_path,filename='./c
 
 
 
-def adjust_learning_rate(opt, optimizer, epoch):                        
+def adjust_learning_rate(opt, optimizer, epoch):
     """
     Sets the learning rate to the initial LR decayed by 10 every 30 epochs(step = 30)
     """
