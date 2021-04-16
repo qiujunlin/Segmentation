@@ -229,7 +229,7 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val):
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_dice': best_pred,
-            }, best_pred, epoch, is_best, checkpoint_dir, filename=checkpoint_latest)
+            }, best_pred, epoch, is_best, args.net_work, checkpoint_dir, filename=checkpoint_latest)
 
 to_pil = transforms.ToPILImage()
 def test(model, dataloader, args):

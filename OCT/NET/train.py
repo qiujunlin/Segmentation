@@ -5,7 +5,7 @@ import socket
 from datetime import datetime
 import os
 from model.BaseNet import CPFNet
-from model.unet import UNet
+from models.network import U_Net
 import torch
 from tensorboardX import SummaryWriter
 import tqdm
@@ -13,11 +13,14 @@ import torch.nn as nn
 from torch.nn import functional as F
 import numpy as np
 from  PIL import Image
-
+from core.res_unet_plus import  ResUnetPlusPlus
 import utils.utils as u
 import utils.loss as LS
 from utils.config import DefaultConfig
 import torch.backends.cudnn as cudnn
+
+from  models.network import  AttU_Net
+from models.network import  R2AttU_Net
 def val(args, model, dataloader):
     print('\n')
     print('Start Validation!')
@@ -47,7 +50,7 @@ def val(args, model, dataloader):
                 label = labels[0].cuda()
             slice_num=labels[1].long().item()  #获取总共的label数量  86
             # get RGB predict image
-            
+
             aux_predict,predicts = model(data)  #预测结果  经过softmax后的 float32
             predict=torch.argmax(torch.exp(predicts),dim=1) # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
             batch_size=predict.size()[0]  # 当前的批量大小   1
@@ -109,6 +112,8 @@ def val(args, model, dataloader):
 
         return dice1,ACC
 
+fl = LS.FocalLoss()
+
 def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -131,7 +136,7 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
                 data = data.cuda()
                 label = label.cuda().long()
             optimizer.zero_grad()
-            aux_out,main_out = model(data)
+            a,main_out = model(data)
             # get weight_map
             weight_map=torch.zeros(args.num_classes)
             weight_map=weight_map.cuda()
@@ -140,6 +145,7 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
             # print(weight_map)
 
             loss_aux=F.nll_loss(main_out,label,weight=None)
+          #  loss_aux=fl(main_out,label)
             loss_main= criterion[1](main_out, label)
 
             loss =loss_main+loss_aux
@@ -176,7 +182,7 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
                     'epoch': epoch + 1,
                     'state_dict': model.state_dict(),
                     'best_dice': best_pred,
-                    }, best_pred,epoch,is_best, checkpoint_dir,filename=checkpoint_latest)
+                    }, best_pred,epoch,is_best, args.net_work,checkpoint_dir,filename=checkpoint_latest)
                     
 def test(model,dataloader, args):
     print('start test!')
@@ -249,8 +255,13 @@ def main(mode='train',args=None):
     
 
     #load model
-    model_all={'BaseNet':CPFNet(out_planes=args.num_classes),'UNet':UNet(in_channels=3, n_classes=args.num_classes)}
+    model_all={'BaseNet':CPFNet(out_planes=args.num_classes),
+               'UNet':U_Net(img_ch=3, output_ch=args.num_classes),
+               'RESUNT':ResUnetPlusPlus(3),
+               'AttU_Net':AttU_Net(),
+               'R2AttU_Net':R2AttU_Net(img_ch=3,output_ch=2)}
     model=model_all[args.net_work]
+    print(args.net_work)
     cudnn.benchmark = True
     # model._initialize_weights()
     if torch.cuda.is_available() and args.use_gpu:

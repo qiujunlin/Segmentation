@@ -5,7 +5,7 @@ Created on Tue Mar 12 14:03:52 2019
 @author: Administrator
 """
 class DefaultConfig(object):
-    num_epochs=150
+    num_epochs=100
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
@@ -18,14 +18,14 @@ class DefaultConfig(object):
     dataset="data_med4"
     log_dirs='/root/PycharmProjects/CPFNet_Project/Log/OCT'
     
-    lr=5e-3#0.01
+    lr=0.01#0.01
     lr_mode= 'poly'
-    net_work= 'DAF'
+    net_work= 'R2AttU_Net'
     momentum = 0.9#
-    weight_decay =1e-2 #1e-4#
+    weight_decay =1e-4#1e-4#
 
 
-    mode='test'
+    mode='train'
     num_classes=2
 
     
@@ -35,7 +35,7 @@ class DefaultConfig(object):
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='/root/PycharmProjects/CPFNet_Project/OCT/NET/DAF/checkpoints/model_016_0.8114.pth.tar'
+    pretrained_model_path='/root/PycharmProjects/CPFNet_Project/OCT/NET/checkpoints/model_RESUNT_012_0.7345.pth.tar'
     save_model_path='./checkpoints'
     
 
