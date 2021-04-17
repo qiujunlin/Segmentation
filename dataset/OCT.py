@@ -35,7 +35,14 @@ class OCT(torch.utils.data.Dataset):
         self.img_path=dataset_path+'/'+mode+'/img'
         self.mask_path=dataset_path+'/'+mode+'/mask'
         self.image_lists,self.label_lists=self.read_list(self.img_path)
+        # 选择1到5种方法做变换
         self.flip =iaa.SomeOf((1,4),[
+            ## 添加高斯噪声 iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255)
+
+            #iaa.CropAndPad(px=(-10, 0), percent=None, pad_mode='constant', pad_cval=0, keep_size=False)
+            #iaa.ElasticTransformation(alpha=(0, 50), sigma=(4.0, 6.0))
+           # iaa.PiecewiseAffine(scale=(0, 0.1), nb_rows=4, nb_cols=4, cval=0)
+            # iaa.GaussianBlur((0, 1.0))             # iaa.GaussianBlur((0, 1.0))
              iaa.Fliplr(0.5),   # #50%的概率水平翻转
              iaa.Flipud(0.1),   #50%的概率垂直翻转
              iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  #锐化
@@ -46,7 +53,9 @@ class OCT(torch.utils.data.Dataset):
                     iaa.AverageBlur(k=(3, 5)), # blur image using local means with kernel sizes between 2 and 7
                     iaa.MedianBlur(k=(3, 5)), # blur image using local medians with kernel sizes between 2 and 7
                 ]),
+
              iaa.contrast.LinearContrast((0.5, 1.5))], random_order=True)  #调整对比度，0.5表示和128的差值部分会处以2降低对比度
+
         # resize
         self.resize_label = transforms.Resize(scale, Image.NEAREST)
         self.resize_img = transforms.Resize(scale, Image.BILINEAR)
