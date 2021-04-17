@@ -36,38 +36,21 @@ class SpatialAttention(nn.Module):
         x = torch.cat([avgout, maxout], dim=1)
         x = self.conv(x)
         return self.sigmoid(x)
-def conv3x3(in_planes, out_planes, stride=1):
-    """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, bias=False)
-class BasicBlock(nn.Module):
-    expansion = 1
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(BasicBlock, self).__init__()
-        self.conv1 = conv3x3(inplanes, planes, stride)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.ca = ChannelAttention(planes)
-        self.sa = SpatialAttention()
-        self.downsample = downsample
-        self.stride = stride
+
+class CBAM(nn.Module):
+    def __init__(self,inchannel):
+        super(CBAM, self).__init__()
+        self.ca =  ChannelAttention(inchannel)
+        self.sp = SpatialAttention()
     def forward(self, x):
-        residual = x
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.ca(out) * out  # 广播机制
-        out = self.sa(out) * out  # 广播机制
-        if self.downsample is not None:
-            residual = self.downsample(x)
-        out += residual
-        out = self.relu(out)
-        return out
+        x = self.ca(x)*x
+        x = self.sp(x)*x
+        return  x
+
 if __name__ == '__main__':
-    net  =BasicBlock(inplanes=3,planes=3)
-    a =  torch.randn((1,3,224,224))
-    print(net(a))
+    #net  =BasicBlock(inplanes=3,planes=3)
+    a =  torch.randn((1,64,224,224))
+    avg_pool = nn.AdaptiveAvgPool2d(1)
+    max_pool = nn.AdaptiveMaxPool2d(1)
+    net = SpatialAttention()
+    print(net(a).shape)

@@ -5,7 +5,6 @@ import socket
 from datetime import datetime
 import os
 from model.BaseNet import CPFNet
-from models.network import U_Net
 import torch
 from tensorboardX import SummaryWriter
 import tqdm
@@ -13,14 +12,11 @@ import torch.nn as nn
 from torch.nn import functional as F
 import numpy as np
 from  PIL import Image
-from core.res_unet_plus import  ResUnetPlusPlus
 import utils.utils as u
 import utils.loss as LS
-from utils.config import DefaultConfig
+from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
-
-from  models.network import  AttU_Net
-from models.network import  R2AttU_Net
+from model.unet import  UNet
 def val(args, model, dataloader):
     print('\n')
     print('Start Validation!')
@@ -256,10 +252,7 @@ def main(mode='train',args=None):
 
     #load model
     model_all={'BaseNet':CPFNet(out_planes=args.num_classes),
-               'UNet':U_Net(img_ch=3, output_ch=args.num_classes),
-               'RESUNT':ResUnetPlusPlus(3),
-               'AttU_Net':AttU_Net(),
-               'R2AttU_Net':R2AttU_Net(img_ch=3,output_ch=2)}
+               'UNet':UNet()}
     model=model_all[args.net_work]
     print(args.net_work)
     cudnn.benchmark = True

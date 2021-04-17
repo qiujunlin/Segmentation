@@ -4,23 +4,21 @@ from dataset.OCT import OCT
 import socket
 from datetime import datetime
 import os
-from model.BaseNet import CPFNet
 from model.unet import UNet
 import torch
 from tensorboardX import SummaryWriter
 import tqdm
 import torch.nn as nn
-from torch.nn import functional as F
 import numpy as np
 from PIL import Image
 from torchvision import  transforms
 import utils.utils as u
 import utils.loss as LS
-from utils.config import DefaultConfig
+from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
-import  misc
 from models.resnext.model import  DAF
-import  misc
+
+
 class AvgMeter(object):
     def __init__(self):
         self.reset()

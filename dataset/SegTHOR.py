@@ -1,10 +1,8 @@
 import torch
 import glob
 import os
-import sys
 
 from torchvision import transforms
-from torchvision.transforms import functional as F
 #import cv2
 from PIL import Image
 # import pandas as pd
@@ -12,9 +10,6 @@ import numpy as np
 from imgaug import augmenters as iaa
 import imgaug as ia
 #from utils import get_label_info, one_hot_it
-import random
-import skimage.io as io
-from utils.config import DefaultConfig
 
 def augmentation():
     # augment images with spatial transformation: Flip, Affine, Rotation, etc...

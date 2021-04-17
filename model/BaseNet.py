@@ -8,9 +8,7 @@ Created on Wed Apr 10 09:57:49 2019
 import torch
 from torchvision import models
 import torch.nn as nn
-from resnet import resnet34
-# from resnet import resnet34
-# import resnet
+from model.resnet import resnet34
 from torch.nn import functional as F
 import torchsummary
 from torch.nn import init
@@ -458,6 +456,9 @@ class GlobalAvgPool2d(nn.Module):
 
 
 if __name__ == '__main__':
+    from torchsummary import summary
+
     model = CPFNet(out_planes=2)
+    model = model.cuda()
     a= torch.rand((1,3,448,448))
-    model(a)
+    print(summary(model, (3, 224, 512)))
