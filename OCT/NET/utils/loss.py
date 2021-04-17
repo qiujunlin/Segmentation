@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-#import torch.nn.functional as F
+import torch.nn.functional as F
 from torch.autograd import Variable
 #
 #def loss_builder(loss_type):
@@ -59,7 +59,7 @@ class Multi_DiceLoss(nn.Module):
         return dice_loss
 
 class EL_DiceLoss(nn.Module):
-    def __init__(self, class_num=4,smooth=1,gamma=0.5):
+    def __init__(self, class_num=2,smooth=1,gamma=0.5):
         super(EL_DiceLoss, self).__init__()
         self.smooth = smooth
         self.class_num = class_num
@@ -81,3 +81,23 @@ class EL_DiceLoss(nn.Module):
             Dice += (-torch.log(dice))**self.gamma
         dice_loss = Dice/(self.class_num - 1)
         return dice_loss
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+
+    def forward(self, inputs, targets):
+        if self.logits:
+            BCE_loss = F.nll_loss(inputs, targets, reduce=False)
+        else:
+            BCE_loss = F.nll_loss(inputs, targets, reduce=False)
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+
+        if self.reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss

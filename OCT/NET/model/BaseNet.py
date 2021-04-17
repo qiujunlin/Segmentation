@@ -79,13 +79,13 @@ class CPFNet(nn.Module):
         m3=self.mce_3(c3,c4,c5)
         m4=self.mce_4(c4,c5)
         # d_bottom=self.bottom(c5)
-        c5=self.sap(c5)
+       # c5=self.sap(c5)
 
         # d5=d_bottom+c5           #512
 
-        d4=self.relu(self.decoder5(c5)+m4)  #256
-        d3=self.relu(self.decoder4(d4)+m3)  #128
-        d2=self.relu(self.decoder3(d3)+m2) #64
+        d4=self.relu(self.decoder5(c5)+c4)  #256
+        d3=self.relu(self.decoder4(d4)+c3)  #128
+        d2=self.relu(self.decoder3(d3)+c2) #64
         d1=self.decoder2(d2)+c1 #32
         main_out=self.main_head(d1)
         main_out=F.log_softmax(main_out,dim=1)

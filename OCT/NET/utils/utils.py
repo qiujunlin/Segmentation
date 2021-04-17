@@ -11,14 +11,14 @@ import os.path as osp
 import shutil
 #import math
 
-def save_checkpoint(state,best_pred, epoch,is_best,checkpoint_path,filename='./checkpoint/checkpoint.pth.tar'):
+def save_checkpoint(state,best_pred, epoch,is_best,net,checkpoint_path,filename='./checkpoint/checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, osp.join(checkpoint_path,'model_{:03d}_{:.4f}.pth.tar'.format((epoch + 1),best_pred)))
+        shutil.copyfile(filename, osp.join(checkpoint_path,'model_{}_{:03d}_{:.4f}.pth.tar'.format(net,(epoch + 1),best_pred)))
 
 
 
-def adjust_learning_rate(opt, optimizer, epoch):                        
+def adjust_learning_rate(opt, optimizer, epoch):
     """
     Sets the learning rate to the initial LR decayed by 10 every 30 epochs(step = 30)
     """

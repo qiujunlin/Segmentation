@@ -4,20 +4,18 @@ Created on Wed Sep 19 10:59:53 2018
 
 """
 import numpy as np
-import os
-import  torch
+import os 
 from PIL import Image
-#path_true=r'/root/qiu/dataset/data_med4/test/mask'
-#path_predict=r'/root/qiu/dataset/data_med4/test/predict'
-path_true=r'E:\dataset\data_med4\test\mask'
-path_predict=r'E:\dataset\data_med4\test\predict'
+path_true=r'/root/qiu/dataset/data_med4/test/mask'
+path_predict=r'/root/qiu/dataset/data_med4/test/predict'
+#path_true=r'E:\dataset\data_med4\test\mask'
+#path_predict=r'E:\dataset\data_med4\test\predict'
 TP=FPN=0
 Jaccard=[]
 from torchvision import  transforms
 scale=(256,448)
 resize_label = transforms.Resize(scale, Image.NEAREST)
 dices=[]
-
 
 
 def eval_multi_seg(predict, target, num_classes):
@@ -60,7 +58,6 @@ for roots,dirs,files in os.walk(path_predict):
             img_true =  resize_label(img_true)
             img_true = np.array(img_true)
             img_true[img_true==255]=1
-
 #            print(img_pre.shape)
 #            print(img_true.shape)
 #            TP = TP+np.sum(np.array(img_pre,dtype=np.int32)&np.array(img_true,dtype=np.int32))
@@ -70,15 +67,16 @@ for roots,dirs,files in os.walk(path_predict):
           #  FPN = FPN +np.sum(img_pre)+np.sum(img_true)
             #overlap=((img_pre==1)*(img_true==1)).sum()
            # union=(img_pre==1).sum()+(img_true==1).sum()
-            #overlap = np.sum(img_pre*img_true)
-
-            #union =  np.sum(img_pre)+np.sum(img_true)
-            #dices.append((2*overlap+0.01)/(union+0.01))
-            Di,True_label,acc = eval_multi_seg(img_pre,img_true,2)
-            dices.append(Di[0])
+            overlap = np.sum(img_pre*img_true)
+            union =  np.sum(img_pre)+np.sum(img_true)
+            dices.append((2*overlap+0.01)/(union+0.01))
+            #Di,True_label,acc = eval_multi_seg(img_pre,img_true,2)
+            #dices.append(Di[0])
             single_I=np.sum(img_pre*img_true)
             single_U=np.sum(img_pre)+np.sum(img_true)-single_I
             Jaccard.append(single_I/single_U)
+
+
 
 #dice = 2*TP/FPN
 dice  = sum(dices)/len(dices)
