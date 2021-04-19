@@ -457,7 +457,6 @@ class GlobalAvgPool2d(nn.Module):
 
 if __name__ == '__main__':
     from torchsummary import summary
-
     model = CPFNet(out_planes=2)
     model = model.cuda()
     a= torch.rand((1,3,448,448))

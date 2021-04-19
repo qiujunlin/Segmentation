@@ -3,7 +3,6 @@ import  torch
 import numpy as np
 import  torch.nn as nn
 import  torchvision.models as models
-from resnet import  resnet50
 from PIL import Image
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
@@ -106,4 +105,28 @@ def u():
     a =  torch.Tensor([0.98,0.1])
     c = torch.sigmoid(a)
     print(c)
-u()
+def lr():
+    print("1, lr 0.009910:")
+    lr = 0.01
+    for i in range(201):
+      lr = lr * (1 - i / 200) ** 0.9
+      print(lr)
+def sum():
+    a = torch.Tensor([[1,1],[1,1]])
+    #print(a.sum(1))
+    b=torch.rand((1,200))
+    c=torch.rand((1,200))
+    #print(c*b)
+    print((c*b))
+class dice_bce_loss(nn.Module):
+    def __init__(self, batch=True):
+        super(dice_bce_loss, self).__init__()
+
+    def soft_dice_loss(self, y_true, y_pred):
+        return 1
+    def __call__(self, y_true, y_pred):
+        a = 2
+        return a
+ner =  dice_bce_loss()
+print(ner(1,2))
+#sum()

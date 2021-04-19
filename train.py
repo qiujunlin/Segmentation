@@ -1,10 +1,9 @@
 # coding=gbk
 from torch.utils.data import DataLoader
-from dataset.OCT import OCT
+
 import socket
 from datetime import datetime
 import os
-from model.BaseNet import CPFNet
 import torch
 from tensorboardX import SummaryWriter
 import tqdm
@@ -16,7 +15,17 @@ import utils.utils as u
 import utils.loss as LS
 from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
+from torch.optim import lr_scheduler
+
+"""
+导入模型 数据加载
+"""
+from dataset.OCT import OCT
+from model.BaseNet import CPFNet
 from model.unet import  UNet
+
+
+
 def val(args, model, dataloader):
     print('\n')
     print('Start Validation!')
@@ -108,9 +117,7 @@ def val(args, model, dataloader):
 
         return dice1,ACC
 
-fl = LS.FocalLoss()
-
-def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
+def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
     log_dir = os.path.join(args.log_dirs, current_time + '_' + socket.gethostname())
@@ -118,7 +125,9 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
     step = 0
     best_pred=0.0
     for epoch in range(args.num_epochs):
-        lr = u.adjust_learning_rate(args,optimizer,epoch) 
+        #动态调整学习率
+       # lr = u.adjust_learning_rate(args,optimizer,epoch)
+        lr = optimizer.state_dict()['param_groups'][0]['lr']
         model.train()
         tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
@@ -131,22 +140,22 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
                 label = label.cuda().long()
+            """
+            网络训练 标准三步
+            """
             optimizer.zero_grad()
             a,main_out = model(data)
-            # get weight_map
-            weight_map=torch.zeros(args.num_classes)
-            weight_map=weight_map.cuda()
-            for ind in range(args.num_classes):
-                weight_map[ind]=1/(torch.sum((label==ind).float())+1.0)
-            # print(weight_map)
 
-            loss_aux=F.nll_loss(main_out,label,weight=None)
-          #  loss_aux=fl(main_out,label)
+            """
+            计算损失函数
+            """
+            loss_aux=criterion[0](main_out,label)
             loss_main= criterion[1](main_out, label)
-
             loss =loss_main+loss_aux
             loss.backward()
             optimizer.step()
+
+
             tq.update(args.batch_size)
             train_loss += loss.item()
             tq.set_postfix(loss='%.6f' % (train_loss/(i+1))) #显示进度条信息
@@ -154,6 +163,7 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
             if step%10==0:
                 writer.add_scalar('Train/loss_step', loss, step)
             loss_record.append(loss.item())
+
         tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('Train/loss_epoch', float(loss_train_mean), epoch)
@@ -162,11 +172,23 @@ def train(args, model, optimizer,criterion, dataloader_train, dataloader_val):
 
         if epoch % args.validation_step == 0:
             Dice1,acc= val(args, model, dataloader_val)
+            """
+            更新学习率
+            """
+            if args.scheduler == 'CosineAnnealingLR':
+                scheduler.step()
+            elif args.scheduler == 'ReduceLROnPlateau':
+                scheduler.step(Dice1)
+            else:
+                scheduler.step()
 
             writer.add_scalar('Valid/Dice1_val', Dice1, epoch)
             writer.add_scalar('Valid/Acc_val', acc, epoch)
 
-            # mean_Dice=(Dice1+Dice2+Dice3)/3.0
+            """
+            保存最好的dice,如果当前值比之前的大 就保存 否则就算了
+            """
+
             is_best=Dice1 > best_pred
             best_pred = max(best_pred, Dice1)
             checkpoint_dir = args.save_model_path
@@ -211,7 +233,9 @@ def test(model,dataloader, args):
 def main(mode='train',args=None):
 
 
-    # create dataset and dataloader
+    """
+    create dataset and dataloader
+    """
     dataset_path = os.path.join(args.data, args.dataset)
     dataset_train = OCT(dataset_path, scale=(args.crop_height, args.crop_width),mode='train')
     dataloader_train = DataLoader(
@@ -250,7 +274,10 @@ def main(mode='train',args=None):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
     
 
-    #load model
+    """
+    load model
+    """
+
     model_all={'BaseNet':CPFNet(out_planes=args.num_classes),
                'UNet':UNet()}
     model=model_all[args.net_work]
@@ -265,13 +292,38 @@ def main(mode='train',args=None):
         checkpoint = torch.load(args.pretrained_model_path)
         model.load_state_dict(checkpoint['state_dict'])
         print('Done!')
-        
+
+
+    """
+     optimizer and  scheduler 
+    """
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+    if args.scheduler == 'CosineAnnealingLR':
+        scheduler = lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=args.num_epochs, eta_min=args.min_lr)
+    elif args.scheduler == 'ReduceLROnPlateau':
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=args.factor, patience=args.patience,
+                                                   verbose=1, min_lr=args.min_lr)
+    elif args.scheduler == 'MultiStepLR':
+        scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(e) for e in args.milestones.split(',')], gamma=args.gamma)
+    elif args.scheduler == 'ConstantLR':
+        scheduler = None
+    elif args.scheduler == "StepLR":
+        scheduler = lr_scheduler.StepLR(optimizer,step_size=30)
+
+    """
+     loss
+    """
     criterion_aux=nn.NLLLoss(weight=None)
     criterion_main=LS.Multi_DiceLoss(class_num=args.num_classes)
     criterion=[criterion_aux,criterion_main]
+
+
+
+
     if mode=='train':
-        train(args, model, optimizer,criterion, dataloader_train, dataloader_val)
+        train(args, model, optimizer,criterion,scheduler,dataloader_train, dataloader_val)
     if mode=='test':
         test(model,dataloader_test, args)
 

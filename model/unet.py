@@ -145,6 +145,3 @@ def weights_init_kaiming(m):
     elif classname.find('BatchNorm') != -1:
         init.normal_(m.weight.data, 1.0, 0.02)
         init.constant_(m.bias.data, 0.0)
-model = UNet()
-model=  model.cuda()
-torchsummary.summary(model, (3, 512, 512))

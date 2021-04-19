@@ -35,7 +35,6 @@ def adjust_learning_rate(opt, optimizer, epoch):
 
 
 
-
 def one_hot_it(label, label_info):
 	# return semantic_map -> [H, W, num_classes]
 	semantic_map = []

@@ -24,16 +24,6 @@ def eval_multi_seg(predict, target, num_classes):
     label_seg = target  # n h w
     assert (pred_seg.shape == label_seg.shape)
     acc =0
-#    acc = (pred_seg == label_seg).sum() / (
- #               pred_seg.shape[0] * pred_seg.shape[1] * pred_seg.shape[2])  # acc 就是所有相同的像素值占总像素的大小
-
-    # Dice = []
-    # Precsion = []
-    # Jaccard = []
-    # Sensitivity=[]
-    # Specificity=[]
-
-    # n = pred_seg.shape[0]
     Dice = []
     True_label = []
     for classes in range(1, num_classes):  # 循环遍历说有的类型  没有遍历0 的原因是 0 是背景 说以就不便利

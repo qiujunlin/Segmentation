@@ -2,28 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-#
-#def loss_builder(loss_type):
-#    
-#    if loss_type == 'cross_entropy':
-#        weight_1 = torch.Tensor([1,5,10,20])
-#        criterion = nn.NLLLoss(weight=weight_1,ignore_index=255)
-#        criterion_2 = DiceLoss()
-#        criterion_3 = nn.BCELoss()
-#        return 
-#    elif loss_type == 'dice_loss':
-#        weight_1 = torch.Tensor([1,5,10,20])
-#        criterion_1 = nn.NLLLoss(weight=weight_1,ignore_index=255)
-#        criterion_2 = EL_DiceLoss()
-#        criterion_3 = nn.BCELoss()
-#
-#    if loss_type in ['mix_3','mix_33']:
-#        criterion_1.cuda()
-#        criterion_2.cuda()
-#        criterion_3.cuda()
-#        criterion = [criterion_1,criterion_2,criterion_3]
-#
-#    return criterion
 
 class DiceLoss(nn.Module):
     def __init__(self,smooth=0.01):
