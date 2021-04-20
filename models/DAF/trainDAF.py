@@ -105,22 +105,6 @@ def val(args, model, dataloader):
                 overlap = (pred_seg * label_seg ).sum()
                 union = (pred_seg).sum() + (label_seg).sum()
                 dice=((2 * overlap + 0.1) / (union + 0.1))
-
-                #Dice, true_label, acc = u.eval_multi_seg(predict_cube, label_cube, args.num_classes)
-
-                # for class_id in range(args.num_classes - 1):
-                #     if true_label[class_id] != 0:
-                #         total_Dice[class_id].append(Dice[class_id])
-                #Acc.append(acc)
-                #len0 = len(total_Dice[0]) if len(total_Dice[0]) != 0 else 1
-                # len1=len(total_Dice[1]) if len(total_Dice[1])!=0 else 1
-                # len2=len(total_Dice[2]) if len(total_Dice[2])!=0 else 1
-
-                #dice1 = sum(total_Dice[0]) / len0
-                # dice2=sum(total_Dice[1])/len1
-                # dice3=sum(total_Dice[2])/len2
-                #ACC = sum(Acc) / len(Acc)
-                # mean_dice=(dice1+dice2+dice3)/3.0
                 tbar.set_description('Dice1: %.3f,ACC: %.3f' % (dice, acc))
         # print('Mean_Dice:',mean_dice)
         print('Dice1:', dice)

@@ -24,100 +24,6 @@ from dataset.OCT import OCT
 from model.BaseNet import CPFNet
 from model.unet import  UNet
 
-
-
-def val(args, model, dataloader):
-    print('\n')
-    print('Start Validation!')
-    with torch.no_grad():#在评价过程中停止求梯度  加快速度的作用
-        model.eval()  #!!!评价函数必须使用
-        tbar = tqdm.tqdm(dataloader, desc='\r')
-
-        total_Dice=[]
-        total_Dice1=[]
-        total_Dice2=[]
-        total_Dice3=[]
-        total_Dice.append(total_Dice1)
-        total_Dice.append(total_Dice2)
-        total_Dice.append(total_Dice3)
-        Acc=[]
-        
-        cur_cube=[]
-        cur_label_cube=[]
-        next_cube=[]
-        counter=0
-        end_flag=False
-
-        for i, (data, labels) in enumerate(tbar):
-            # tbar.update()
-            if torch.cuda.is_available() and args.use_gpu:
-                data = data.cuda()
-                label = labels[0].cuda()
-            slice_num=labels[1].long().item()  #获取总共的label数量  86
-            # get RGB predict image
-
-            aux_predict,predicts = model(data)  #预测结果  经过softmax后的 float32
-            predict=torch.argmax(torch.exp(predicts),dim=1) # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
-            batch_size=predict.size()[0]  # 当前的批量大小   1
-
-            counter+=batch_size  # 每次加一
-            if counter<=slice_num:  #如果没有达到 总数
-                cur_cube.append(predict)  #(1,h,w)
-                cur_label_cube.append(label) #
-                if counter==slice_num:
-                    end_flag=True
-                    counter=0
-            else: #没用
-                last=batch_size-(counter-slice_num) #6
-
-                last_p=predict[0:last]
-                last_l=label[0:last]
-
-                first_p=predict[last:]
-                first_l=label[last:]
-
-                cur_cube.append(last_p)
-                cur_label_cube.append(last_l)
-                end_flag=True
-                counter=counter-slice_num
-
-            if end_flag:
-                end_flag=False
-                predict_cube=torch.stack(cur_cube,dim=0).squeeze() # (n,h,w) int 64 tensor
-                label_cube=torch.stack(cur_label_cube,dim=0).squeeze()#  n hw float32 tensor
-                cur_cube=[]
-                cur_label_cube=[]
-                if counter!=0: #w为0
-                    cur_cube.append(first_p)
-                    cur_label_cube.append(first_l)
-
-                assert predict_cube.size()[0]==slice_num
-                #计算
-                Dice,true_label,acc=u.eval_multi_seg(predict_cube,label_cube,args.num_classes)
-
-                for class_id in range(args.num_classes-1):
-                    if true_label[class_id]!=0:
-                        total_Dice[class_id].append(Dice[class_id])
-                Acc.append(acc)
-                len0=len(total_Dice[0]) if len(total_Dice[0])!=0 else 1
-                #len1=len(total_Dice[1]) if len(total_Dice[1])!=0 else 1
-                #len2=len(total_Dice[2]) if len(total_Dice[2])!=0 else 1
-
-                dice1=sum(total_Dice[0])/len0
-                #dice2=sum(total_Dice[1])/len1
-                #dice3=sum(total_Dice[2])/len2
-                ACC=sum(Acc)/len(Acc)
-                #mean_dice=(dice1+dice2+dice3)/3.0
-                tbar.set_description('Dice1: %.3f,ACC: %.3f' % (dice1,ACC))
-        #print('Mean_Dice:',mean_dice)
-        print('Dice1:',dice1)
-       # print('Dice2:',dice2)
-       # print('Dice3:',dice3)
-        print('Acc:',ACC)
-
-        return dice1,ACC
-
-
 def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -149,7 +55,7 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             网络训练 标准三步
             """
             optimizer.zero_grad()
-            a,main_out = model(data)
+            main_out = model(data)
 
             """
             计算损失函数
@@ -176,7 +82,7 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
         
 
         if epoch % args.validation_step == 0:
-            Dice1,acc= val(args, model, dataloader_val)
+            Dice1,acc= u.val_softmax(args, model, dataloader_val)
             """
             更新学习率
             """
@@ -210,19 +116,24 @@ def test(model,dataloader, args):
     print('start test!')
     with torch.no_grad():
         model.eval()
-        # precision_record = []
         tq = tqdm.tqdm(dataloader,desc='\r')
         tq.set_description('test')
+
         comments=os.getcwd().split('/')[-1]
+
         for i, (data, label_path) in enumerate(tq):
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
                 # label = label.cuda()
+            """
+            输出预测
+            """
             aux_pred,predict = model(data)
             predict=torch.argmax(torch.exp(predict),dim=1)
-
             pred=predict.data.cpu().numpy()
+
             sum1 =  (pred==1).sum()
+
             pred_RGB=OCT.COLOR_DICT[pred.astype(np.uint8)]
             sum2 = (pred_RGB[0,:,:,0]==255).sum()
             for index,item in enumerate(label_path):

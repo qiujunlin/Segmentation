@@ -12,7 +12,49 @@ import shutil
 #import math
 import tqdm
 
-def val(args, model, dataloader):
+
+def val_softmax(args, model, dataloader):
+    print('\n')
+    print('Start Validation!')
+    with torch.no_grad():  # 在评价过程中停止求梯度  加快速度的作用
+        model.eval()  # !!!评价函数必须使用
+        tbar = tqdm.tqdm(dataloader, desc='\r')
+        total_Dice = []
+        dice1 = []
+        total_Dice.append(dice1)
+        Acc = []
+        cur_cube = []
+        cur_label_cube = []
+        for i, (data, labels) in enumerate(tbar):
+            # tbar.update()
+            if torch.cuda.is_available() and args.use_gpu:
+                data = data.cuda()
+                label = labels[0].cuda()
+            slice_num = labels[1].long().item()  # 获取总共的label数量  86
+            # get RGB predict image
+            aux_predict, predicts = model(data)  # 预测结果  经过softmax后的 float32
+            predict = torch.argmax(torch.exp(predicts), dim=1)  # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
+            batch_size = predict.size()[0]  # 当前的批量大小   1
+            cur_cube.append(predict)  # (1,h,w)
+            cur_label_cube.append(label)  #
+        predict_cube = torch.stack(cur_cube, dim=0).squeeze()  # (n,h,w) int 64 tensor
+        label_cube = torch.stack(cur_label_cube, dim=0).squeeze()  # n hw float32 tensor
+        assert predict_cube.size()[0] == slice_num
+        # 计算
+        Dice, acc = eval_multi_seg(predict_cube, label_cube, args.num_classes)
+        for class_id in range(args.num_classes - 1):
+                total_Dice[class_id].append(Dice[class_id])
+        Acc.append(acc)
+        dice1 = sum(total_Dice[0])
+        ACC = sum(Acc) / len(Acc)
+        tbar.set_description('Dice1: %.3f,ACC: %.3f' % (dice1, ACC))
+        print('Dice1:', dice1)
+        print('Acc:', ACC)
+        return dice1, ACC
+"""
+评价sigmod的函数
+"""
+def val_sigmod(args, model, dataloader):
     print('\n')
     print('Start Validation!')
     with torch.no_grad():  # 在评价过程中停止求梯度  加快速度的作用
@@ -34,17 +76,19 @@ def val(args, model, dataloader):
             counter += batch_size  # 每次加一
             cur_cube.append(predict)  # (1,h,w)
             cur_label_cube.append(label)  #
-
         predict_cube = torch.stack(cur_cube, dim=0).squeeze()  # (n,h,w) int 64 tensor
         label_cube = torch.stack(cur_label_cube, dim=0).squeeze()  # n hw float32 tensor
         # 计算
-        Dice,acc = train_eval(predict_cube, label_cube, args.num_classes)
+        Dice,acc = eval_multi_seg(predict_cube, label_cube, args.num_classes)
         print('Dice1:', Dice)
         print('Acc:', acc)
         return Dice, acc
 
 
 def save_checkpoint(state,best_pred, epoch,is_best,net,checkpoint_path,filename='./checkpoint/checkpoint.pth.tar'):
+    """
+    保存训练参数
+    """
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, osp.join(checkpoint_path,'model_{}_{:03d}_{:.4f}.pth.tar'.format(net,(epoch + 1),best_pred)))
@@ -93,7 +137,6 @@ def compute_score(predict, target, forground = 1,smooth=1):
     FN=(target == forground).sum()-overlap #FN
     TN= target.shape[0]*target.shape[1]-union #TN
 
-
     #print('overlap:',overlap)
     dice=(2*overlap +smooth)/ (union+overlap+smooth)
     
@@ -108,21 +151,16 @@ def compute_score(predict, target, forground = 1,smooth=1):
 
     return dice,precsion,jaccard,Sensitivity,Specificity
 
+
 def eval_multi_seg(predict, target,num_classes):
+    """
+    返回多分类的损失函数
+    """
     # pred_seg=torch.argmax(torch.exp(predict),dim=1).int()
     pred_seg = predict.data.cpu().numpy() # n h w int64 ndarray
     label_seg = target.data.cpu().numpy().astype(dtype=np.int) # n h w float32  -> int32 ndarray
     assert(pred_seg.shape == label_seg.shape)
     acc=(pred_seg==label_seg).sum()/(pred_seg.shape[0]*pred_seg.shape[1]*pred_seg.shape[2])  #acc 就是所有相同的像素值占总像素的大小
-    num1 =  pred_seg[0].sum()
-    num2 = label_seg[0].sum()
-    # Dice = []
-    # Precsion = []
-    # Jaccard = []
-    # Sensitivity=[]
-    # Specificity=[]
-
-    # n = pred_seg.shape[0]
     Dice=[]
     True_label=[]
     for classes in range(1,num_classes):  # 循环遍历说有的类型  没有遍历0 的原因是 0 是背景 说以就不便利
@@ -130,27 +168,11 @@ def eval_multi_seg(predict, target,num_classes):
         union=(pred_seg==classes).sum()+(label_seg==classes).sum()
         Dice.append((2*overlap+0.1)/(union+0.1))
         True_label.append((label_seg==classes).sum())
-    
-    return Dice,True_label,acc
-
-
-def train_eval(predict, target, classes):    # pred_seg=torch.argmax(torch.exp(predict),dim=1).int()
-    pred_seg = predict.data.cpu().numpy()  # n h w int64 ndarray
-    label_seg = target.data.cpu().numpy().astype(dtype=np.int)  # n h w float32  -> int32 ndarray
-    assert (pred_seg.shape == label_seg.shape)
-    acc = (pred_seg == label_seg).sum() / (
-                pred_seg.shape[0] * pred_seg.shape[1] * pred_seg.shape[2])  # acc 就是所有相同的像素值占总像素的大小
-    overlap = ((pred_seg == classes) * (label_seg == classes)).sum()
-    union = (pred_seg == classes).sum() + (label_seg == classes).sum()
-    dice = (2 * overlap + 0.1) / (union + 0.1)
-    return dice, acc
-
-
-
+    return Dice,acc
 
 
 def eval_seg(predict, target, forground = 1):
-    pred_seg=torch.round(torch.sigmoid(predict)).int()
+    pred_seg=torch.round(predict).int()
     pred_seg = pred_seg.data.cpu().numpy()
     label_seg = target.data.cpu().numpy().astype(dtype=np.int)
     assert(pred_seg.shape == label_seg.shape)

@@ -127,6 +127,10 @@ class dice_bce_loss(nn.Module):
     def __call__(self, y_true, y_pred):
         a = 2
         return a
-ner =  dice_bce_loss()
-print(ner(1,2))
+def roun():
+     for classes in range(1,1):
+         print("ada")
+
+roun()
+#@print(ner(1,2))
 #sum()

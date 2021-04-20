@@ -89,7 +89,7 @@ class CPFNet(nn.Module):
         main_out=F.log_softmax(main_out,dim=1)
 
             #(1,2,448,448)
-        return main_out,main_out
+        return main_out
     
     
     def _initialize_weights(self):
