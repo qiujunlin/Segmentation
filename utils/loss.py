@@ -9,7 +9,7 @@ class DiceLoss(nn.Module):
         self.smooth = smooth
         
     def forward(self,input, target):
-        input = torch.sigmoid(input)
+       # input = torch.sigmoid(input)
         Dice = Variable(torch.Tensor([0]).float()).cuda()
         intersect=(input*target).sum()
         union = torch.sum(input) + torch.sum(target)
