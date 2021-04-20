@@ -126,9 +126,13 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
     step = 0
     best_pred=0.0
     for epoch in range(args.num_epochs):
-        #动态调整学习率
-       # lr = u.adjust_learning_rate(args,optimizer,epoch)
-        lr = optimizer.state_dict()['param_groups'][0]['lr']
+        #动态调整学习率,使用官方的学习率调整和使用自己的
+        if(args.scheduler==None):
+         lr = optimizer.state_dict()['param_groups'][0]['lr']
+        else:
+         lr = u.adjust_learning_rate(args, optimizer, epoch)
+
+
         model.train()
         tq = tqdm.tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
@@ -180,8 +184,7 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
                 scheduler.step()
             elif args.scheduler == 'ReduceLROnPlateau':
                 scheduler.step(Dice1)
-            else:
-                scheduler.step()
+
 
             writer.add_scalar('Valid/Dice1_val', Dice1, epoch)
             writer.add_scalar('Valid/Acc_val', acc, epoch)
