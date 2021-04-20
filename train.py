@@ -117,6 +117,7 @@ def val(args, model, dataloader):
 
         return dice1,ACC
 
+
 def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')

@@ -10,6 +10,66 @@ import pandas as pd
 import os.path as osp
 import shutil
 #import math
+import tqdm
+
+def val(args, model, dataloader):
+    print('\n')
+    print('Start Validation!')
+    with torch.no_grad():  # 在评价过程中停止求梯度  加快速度的作用
+        model.eval()  # !!!评价函数必须使用
+        tbar = tqdm.tqdm(dataloader, desc='\r')
+
+        for i, (data, labels) in enumerate(tbar):
+            # tbar.update()
+            if torch.cuda.is_available() and args.use_gpu:
+                data = data.cuda()
+                label = labels[0].cuda()
+
+            slice_num = labels[1].long().item()  # 获取总共的label数量  86
+            # get RGB predict image
+
+            predicts= model(data)  # 预测结果  经过softmax后的 float32
+            predict = torch.argmax(torch.exp(predicts), dim=1)  # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
+            batch_size = predict.size()[0]  # 当前的批量大小   1
+
+            counter += batch_size  # 每次加一
+            if counter <= slice_num:  # 如果没有达到 总数
+                cur_cube.append(predict)  # (1,h,w)
+                cur_label_cube.append(label)  #
+                if counter == slice_num:
+                    end_flag = True
+                    counter = 0
+
+            if end_flag:
+                end_flag = False
+                predict_cube = torch.stack(cur_cube, dim=0).squeeze()  # (n,h,w) int 64 tensor
+                label_cube = torch.stack(cur_label_cube, dim=0).squeeze()  # n hw float32 tensor
+                cur_cube = []
+                cur_label_cube = []
+
+                assert predict_cube.size()[0] == slice_num
+                # 计算
+                Dice, true_label, acc = eval_multi_seg(predict_cube, label_cube, args.num_classes)
+
+                Acc.append(acc)
+                len0 = len(total_Dice[0]) if len(total_Dice[0]) != 0 else 1
+                # len1=len(total_Dice[1]) if len(total_Dice[1])!=0 else 1
+                # len2=len(total_Dice[2]) if len(total_Dice[2])!=0 else 1
+
+                dice1 = sum(total_Dice[0]) / len0
+                # dice2=sum(total_Dice[1])/len1
+                # dice3=sum(total_Dice[2])/len2
+                ACC = sum(Acc) / len(Acc)
+                # mean_dice=(dice1+dice2+dice3)/3.0
+                tbar.set_description('Dice1: %.3f,ACC: %.3f' % (dice1, ACC))
+        # print('Mean_Dice:',mean_dice)
+        print('Dice1:', dice1)
+        # print('Dice2:',dice2)
+        # print('Dice3:',dice3)
+        print('Acc:', ACC)
+
+        return dice1, ACC
+
 
 def save_checkpoint(state,best_pred, epoch,is_best,net,checkpoint_path,filename='./checkpoint/checkpoint.pth.tar'):
     torch.save(state, filename)

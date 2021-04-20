@@ -73,6 +73,6 @@ dice  = sum(dices)/len(dices)
 print('TP:',TP)
 print('FPN:',FPN)           
 print("DICE",dice)
-#print('glob_Jaccard',TP/(FPN-TP))
+print('glob_Jaccard',TP/(FPN-TP))
 print('single_Jaccard',sum(Jaccard)/len(Jaccard))
             
