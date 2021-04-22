@@ -22,9 +22,10 @@ def augmentation():
     pass
 
 def augmentation_pixel():
+
     # augment images with pixel intensity transformation: GaussianBlur, Multiply, etc...
     pass
-
+false = []
 class OCT(torch.utils.data.Dataset):
     Unlabelled=[0,0,0]
     Aorta = [255,255,255]

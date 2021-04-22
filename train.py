@@ -22,8 +22,8 @@ from torch.optim import lr_scheduler
 """
 from dataset.OCT import OCT
 from model.BaseNet import CPFNet
-from model.unet import  UNet
-
+#from model.unet import  UNet
+from unet.unet_model import  U_Transformer
 def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -194,7 +194,7 @@ def main(mode='train',args=None):
     """
 
     model_all={'BaseNet':CPFNet(out_planes=args.num_classes),
-               'UNet':UNet()}
+               'UNet':U_Transformer(n_channels=3,n_classes=2)}
     model=model_all[args.net_work]
     print(args.net_work)
     cudnn.benchmark = True
@@ -226,7 +226,8 @@ def main(mode='train',args=None):
         scheduler = None
     elif args.scheduler == "StepLR":
         scheduler = lr_scheduler.StepLR(optimizer,step_size=30)
-
+    else:
+        scheduler =None
     """
      loss
     """

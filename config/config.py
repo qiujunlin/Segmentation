@@ -9,8 +9,8 @@ class DefaultConfig(object):
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
-    crop_height=256
-    crop_width=448
+    crop_height=112
+    crop_width=112
     batch_size=1
     
     #dataset
@@ -24,13 +24,13 @@ class DefaultConfig(object):
     #optim
     lr=0.01#0.01  如果使用了scheduler 那么就设置为 0.001 如果使用的是不断下降 就使用 0.01
     lr_mode= 'poly'
-    net_work= 'BaseNet'
+    net_work= 'UNet'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
 
     # scheduler
 
-    scheduler = "ReduceLROnPlateau"  # 学习率优化器
+    scheduler = ""  # 学习率优化器
     min_lr = 1e-5
     factor=0.1
     patience=2
@@ -39,7 +39,7 @@ class DefaultConfig(object):
     early_stopping=-1
 
     # train and test way
-    mode='test'
+    mode='train'
     num_classes=2
 
     # special model unet++

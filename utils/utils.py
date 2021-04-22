@@ -32,7 +32,7 @@ def val_softmax(args, model, dataloader):
                 label = labels[0].cuda()
             slice_num = labels[1].long().item()  # 获取总共的label数量  86
             # get RGB predict image
-            aux_predict, predicts = model(data)  # 预测结果  经过softmax后的 float32
+            predicts = model(data)  # 预测结果  经过softmax后的 float32
             predict = torch.argmax(torch.exp(predicts), dim=1)  # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
             batch_size = predict.size()[0]  # 当前的批量大小   1
             cur_cube.append(predict)  # (1,h,w)

@@ -7,7 +7,6 @@ class DiceLoss(nn.Module):
     def __init__(self,smooth=0.01):
         super(DiceLoss, self).__init__()
         self.smooth = smooth
-        
     def forward(self,input, target):
        # input = torch.sigmoid(input)
         Dice = Variable(torch.Tensor([0]).float()).cuda()
@@ -16,13 +15,11 @@ class DiceLoss(nn.Module):
         Dice=(2*intersect+self.smooth)/(union+self.smooth)
         dice_loss=1-Dice
         return dice_loss
-
 class Multi_DiceLoss(nn.Module):
     def __init__(self, class_num=5,smooth=0.001):
         super(Multi_DiceLoss, self).__init__()
         self.smooth = smooth
         self.class_num = class_num
-
     def forward(self,input, target):
         input = torch.exp(input)
         Dice = Variable(torch.Tensor([0]).float()).cuda()
