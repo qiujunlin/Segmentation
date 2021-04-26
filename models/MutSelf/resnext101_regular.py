@@ -22,7 +22,7 @@ class ResNeXt101(nn.Module):
         layer4 = self.layer4(layer3)
         return layer4
 if __name__ == '__main__':
-    net = ResNeXt101()
-    A  = torch.rand((1,3,224,224))
-    print(net)
-    print(net(A))
+
+    from torchsummary import summary
+    model =ResNeXt101().eval().cuda()
+    summary(model, input_size=(3, 224, 224), batch_size=-1)

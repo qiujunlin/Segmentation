@@ -231,3 +231,9 @@ class DAF_stack(nn.Module):
         else:
             return ((predict1_2 + predict2_2 + predict3_2 + predict4_2) / 4)
         
+if __name__ == '__main__':
+    from torchsummary import summary
+    model = DAF_stack()
+    x = torch.rand((2, 3, 128, 128))
+    model(x)
+    # summary(model, input_size=(3, 224, 224))
