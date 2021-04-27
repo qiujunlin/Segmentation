@@ -80,12 +80,12 @@ def train(args, model, optimizer, criterion, scheduler, dataloader_train, datalo
             #     break
             if torch.cuda.is_available() and args.use_gpu:
                 data = data.cuda()
-                label = label.cuda().long()
+                label = label.cuda().float()
             """
             网络训练 标准三步
             """
             optimizer.zero_grad()
-            a, main_out = model(data)
+            main_out = model(data)
 
             """
             计算损失函数,，因为depp-suprervision ，需要对四个输出进行监督
@@ -114,7 +114,7 @@ def train(args, model, optimizer, criterion, scheduler, dataloader_train, datalo
         print('loss for train : %f' % (loss_train_mean))
 
         if epoch % args.validation_step == 0:
-            Dice1, acc = u.train_eval(args, model, dataloader_val)
+            Dice1, acc = u.val_sigmod(args, model, dataloader_val)
             """
             更新学习率
             """
@@ -219,7 +219,7 @@ def main(mode='train', args=None):
 
     model_all = {'BaseNet': CPFNet(out_planes=args.num_classes),
                  'UNet': UNet(),
-                 'NestedUNet':NestedUNet(num_classes=args.num_classes,deep_supervision=True)}
+                 'NestedUNet':NestedUNet(num_classes=1,deep_supervision=True)}
     model = model_all[args.net_work]
     print(args.net_work)
     cudnn.benchmark = True
@@ -251,12 +251,14 @@ def main(mode='train', args=None):
         scheduler = None
     elif args.scheduler == "StepLR":
         scheduler = lr_scheduler.StepLR(optimizer, step_size=30)
+    else:
+        scheduler =None
 
     """
      loss
     """
     criterion_aux = nn.BCELoss(weight=None)
-    criterion_main = LS.Multi_DiceLoss(class_num=args.num_classes)
+    criterion_main = LS.Multi_DiceLoss(class_num=1)
     criterion = [criterion_aux, criterion_main]
 
     if mode == 'train':

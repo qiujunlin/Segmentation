@@ -5,16 +5,16 @@ Created on Tue Mar 12 14:03:52 2019
 @author: Administrator
 """
 class DefaultConfig(object):
-    num_epochs=100
+    num_epochs=300
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
-    crop_height=112
-    crop_width=112
+    crop_height=256
+    crop_width=512
     batch_size=1
     
     #dataset
-    data='E:/dataset/1050ti'
+    data='E:\dataset/1050ti'
     dataset="data_med4"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
     k_fold = 4
@@ -24,7 +24,7 @@ class DefaultConfig(object):
     #optim
     lr=0.01#0.01  如果使用了scheduler 那么就设置为 0.001 如果使用的是不断下降 就使用 0.01
     lr_mode= 'poly'
-    net_work= 'UNet'
+    net_work= 'DAF_stack'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
 
