@@ -1,8 +1,7 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-
-from resnext import ResNeXt101
+from resnext101_regular import ResNeXt101
 
 
 class DAF(nn.Module):
@@ -129,3 +128,7 @@ class DAF(nn.Module):
             return predict1, predict2, predict3, predict4, predict1_2, predict2_2, predict3_2, predict4_2
         else:
             return torch.sigmoid((predict1_2 + predict2_2 + predict3_2 + predict4_2) / 4)
+if __name__ == '__main__':
+    net = DAF()
+    a = torch.rand((1,3,224,224))
+    print(net(a))

@@ -1,6 +1,6 @@
 # coding=gbk
 from torch.utils.data import DataLoader
-
+import  csv
 import socket
 from datetime import datetime
 import os
@@ -23,7 +23,7 @@ from torch.optim import lr_scheduler
 from dataset.OCT import OCT
 from model.BaseNet import CPFNet
 #from model.unet import  UNet
-from unet.unet_model import  U_Transformer
+from models.Trans.unet_model import  U_Transformer
 def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -31,6 +31,9 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
     writer = SummaryWriter(log_dir=log_dir)
     step = 0
     best_pred=0.0
+    bestacc = 0.0
+    bestepo =0
+    lastloss= 0.0
     for epoch in range(args.num_epochs):
         #动态调整学习率,使用官方的学习率调整和使用自己的
         if(args.scheduler==None):
@@ -70,6 +73,7 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             tq.update(args.batch_size)
             train_loss += loss.item()
             tq.set_postfix(loss='%.6f' % (train_loss/(i+1))) #显示进度条信息
+            lastloss = train_loss / (i + 1)
             step += 1
             if step%10==0:
                 writer.add_scalar('Train/loss_step', loss, step)
@@ -98,8 +102,10 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             """
             保存最好的dice,如果当前值比之前的大 就保存 否则就算了
             """
-
+            bestacc = max(acc,bestacc)
             is_best=Dice1 > best_pred
+            if(is_best):
+                bestepo = epoch
             best_pred = max(best_pred, Dice1)
             checkpoint_dir = args.save_model_path
             # checkpoint_dir=os.path.join(checkpoint_dir_root,str(k_fold))
@@ -110,8 +116,8 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
                     'epoch': epoch + 1,
                     'state_dict': model.state_dict(),
                     'best_dice': best_pred,
-                    }, best_pred,epoch,is_best, args.net_work,checkpoint_dir,filename=checkpoint_latest)
-                    
+                   }, best_pred,epoch,is_best, args.net_work,checkpoint_dir,filename=checkpoint_latest)
+    return best_pred,bestacc,bestepo,lastloss
 def test(model,dataloader, args):
     print('start test!')
     with torch.no_grad():
@@ -237,9 +243,37 @@ def main(mode='train',args=None):
 
 
 
-
+    bestdice =[]
+    bestacc =0
     if mode=='train':
-        train(args, model, optimizer,criterion,scheduler,dataloader_train, dataloader_val)
+        for i in range(1,6):
+          """
+          训练
+          """
+          best_pred,bestacc,bestepo,lastloss=train(args, model, optimizer,criterion,scheduler,dataloader_train, dataloader_val)
+          """
+          保存参数
+          """
+          bestdice.append(best_pred)
+          row=[args.net_work,i+1,best_pred,bestepo,bestacc,args.lr,args.lr_mode,
+               lastloss,args.batch_size,args.crop_height,args.crop_width,args.num_epochs,args.scheduler,
+               args.momentum,args.weight_decay,args.num_classes]
+          """
+          headers = [ 'net', 'train-epo','bestdice','bestepo', 'bestacc', 'lr', 'lr_mode','lastloss',
+               'batchsize','crop_height','crop_width',
+               'num_epochs','scheduler','momentum','weight_decay',
+               'num_classes']
+          """
+          with open('./data.csv', 'a', newline='')as f:
+              f_csv = csv.writer(f)
+              rows = ['1', '2', '3']
+              f_csv.writerow(row)
+    sum =0
+    for i,data in bestdice:
+        print("dice{}:{:.4f}".format(i,data))
+        sum+=data
+    print("avgdice:{:.4f}".format(data/len(bestdice)))
+
     if mode=='test':
         test(model,dataloader_test, args)
 

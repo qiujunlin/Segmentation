@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 import resnext_101_32x4d_
-resnext_101_32_path = '/root/qiu/pretrain/resnext_101_32x4d.pth'
+resnext_101_32_path = 'D:\workplace/resnext_101_32x4d.pth'
 class ResNeXt101(nn.Module):
     def __init__(self):
         super(ResNeXt101, self).__init__()

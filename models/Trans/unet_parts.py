@@ -81,18 +81,14 @@ class OutConv(nn.Module):
         # self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size - 1) // 2, bias=False)
         self.linear = nn.Linear(256, 256)
         self.sigmoid = nn.Sigmoid()
-    # def forward(self, x):
-    #     return self.conv(x)
-    #
-    # def __init__(self, channel, k_size=3):
-    #     super(GrayscaleAttention, self).__init__()
+
 
     
     def forward(self, x):
         b, c, h, w = x.size()
         is_int = 1
-        if c != 1:
-            raise NotImplementedError()
+        #if c != 1:
+         #   raise NotImplementedError()
         if x.max() <= 1:
             is_int = 0
             x.data *= 255
@@ -108,7 +104,7 @@ class OutConv(nn.Module):
         x_onehot = x_onehot.scatter_(2, x.unsqueeze(2).long(), 1) #[b,c,d,w,h]
         a = x_onehot.squeeze(1) #[b,d,w,h]
         y = self.avg_pool(a) #[b,d,1,1]
-        # y = self.conv(y.squeeze(-1).transpose(-1, -2)).transpose(-1, -2).unsqueeze(-1)
+        # y = self.conv(y.squeeze(-1).transpose(-1, -2)).transpSwitchNorm2dose(-1, -2).unsqueeze(-1)
         y = self.linear(y.squeeze(-1).squeeze(-1)).unsqueeze(-1).unsqueeze(-1)
         y = self.sigmoid(y)
         a = a * y.expand_as(a)
@@ -147,12 +143,12 @@ class MultiHeadAttention(nn.Module):
             raise ValueError("Cannot use sin/cos positional encoding with "
                             "odd dimension (got dim={:d})".format(d_model))
         pe = torch.zeros(d_model, height, width)
-        try:
-             pe = pe.to(torch.device("cuda:0"))
-        except RuntimeError:
-             pass
+        # try:
+        #     pe = pe.to(torch.device("cuda:0"))
+        # except RuntimeError:
+        #     pass
         # Each dimension use half of d_model
-        d_model = int(d_model / 2)
+        d_model = int(d_model / 2)  #  512 -》 256
         div_term = torch.exp(torch.arange(0., d_model, 2) *
                             -(math.log(10000.0) / d_model))
         pos_w = torch.arange(0., width).unsqueeze(1)

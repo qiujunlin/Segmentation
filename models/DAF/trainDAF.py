@@ -122,6 +122,7 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val):
     writer = SummaryWriter(log_dir=log_dir)
     step = 0
     best_pred = 0.0
+    lastloss=0.0
     for epoch in range(args.num_epochs):
 
         train_loss_record, loss0_record, loss1_record, loss2_record = AvgMeter(), AvgMeter(), AvgMeter(), AvgMeter()
@@ -178,6 +179,7 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val):
             tq.update(args.batch_size)
             train_loss += loss.item()
             tq.set_postfix(loss='%.6f' % (train_loss / (i + 1)))  # 显示进度条信息
+
             step += 1
             if step % 10 == 0:
                 writer.add_scalar('Train/loss_step', loss, step)

@@ -58,8 +58,6 @@ class CPFNet(nn.Module):
        
         self.relu = nn.ReLU()
 
-        
-    
     def forward(self, x):
         
         
@@ -458,6 +456,6 @@ class GlobalAvgPool2d(nn.Module):
 if __name__ == '__main__':
     from torchsummary import summary
     model = CPFNet(out_planes=2)
-    model = model.cuda()
+#    model = model.cuda()
     a= torch.rand((1,3,448,448))
     print(summary(model, (3, 224, 512)))

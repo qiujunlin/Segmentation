@@ -1,3 +1,4 @@
+# coding:utf-8
 import  os
 import  torch
 import numpy as np
@@ -171,6 +172,67 @@ def nolcal():
     net = Self_Attn(in_dim=8,activation=None)
     a =  torch.rand((1,8,112,112))
     print(net(a)[0].shape)
-nolcal()
+def ran1():
+    for i in range(1,6):
+        print(i)
+"""
+num_epochs=100
+    epoch_start_i=0
+    checkpoint_step=5
+    validation_step=1
+    crop_height=112
+    crop_width=112
+    batch_size=1
+    #dataset
+    data='E:/dataset/1050ti'
+    dataset="data_med4"
+    log_dirs='E:\workspace\python\CPFNet_Project\Log'
+    k_fold = 4
+    test_fold = 4
+    num_workers = 1
+
+    #optim
+    lr=0.01#0.01  如果使用了scheduler 那么就设置为 0.001 如果使用的是不断下降 就使用 0.01
+    lr_mode= 'poly'
+    net_work= 'UNet'
+    momentum = 0.9#
+    weight_decay =1e-4#1e-4#
+
+    # scheduler
+
+    scheduler = ""  # 学习率优化器
+    min_lr = 1e-5
+    factor=0.1
+    patience=2
+    milestones='1,2'
+    gamma=2/3
+    early_stopping=-1
+
+    # train and test way
+    mode='train'
+    num_classes=2
+
+    # special model unet++
+    deep_supervision = True
+
+    
+    cuda='0'
+    use_gpu=True
+    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_BaseNet_053_0.8837.pth.tar'
+    save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
+"""
+
+import  csv
+def csv1():
+    headers = ['net', 'train-epo', 'bestdice', 'bestepo', 'bestacc', 'lr', 'lr_mode', 'lastloss',
+               'batchsize', 'crop_height', 'crop_width',
+               'num_epochs', 'scheduler', 'momentum', 'weight_decay',
+               'num_classes']
+    with open('./data.csv', 'a', newline='')as f:
+      f_csv = csv.writer(f)
+      f_csv.writerow(headers)
+      rows=['1','2','3']
+      f_csv.writerow(rows)
+    #f_csv.writerows(rows)
 #@print(ner(1,2))
-#sum()
+csv1()
