@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from unet.unet_parts import *
+from models.Trans.unet_parts import *
 
 #InputNorm = SwitchNorm2d
 

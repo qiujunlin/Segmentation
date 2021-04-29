@@ -1,6 +1,6 @@
 # coding=gbk
 from torch.utils.data import DataLoader
-import  csv
+
 import socket
 from datetime import datetime
 import os
@@ -16,13 +16,14 @@ import utils.loss as LS
 from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
 from torch.optim import lr_scheduler
-
+import  csv
 """
 导入模型 数据加载
 """
+
 from dataset.OCT import OCT
 from model.BaseNet import CPFNet
-#from model.unet import  UNet
+from model.resunet import  Resunet
 from models.Trans.unet_model import  U_Transformer
 def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataloader_val):
     #comments=os.getcwd().split('/')[-1]
@@ -73,8 +74,8 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             tq.update(args.batch_size)
             train_loss += loss.item()
             tq.set_postfix(loss='%.6f' % (train_loss/(i+1))) #显示进度条信息
-            lastloss = train_loss / (i + 1)
             step += 1
+            lastloss = train_loss/(i+1)
             if step%10==0:
                 writer.add_scalar('Train/loss_step', loss, step)
             loss_record.append(loss.item())
@@ -200,7 +201,7 @@ def main(mode='train',args=None):
     """
 
     model_all={'BaseNet':CPFNet(out_planes=args.num_classes),
-               'UNet':U_Transformer(n_channels=3,n_classes=2)}
+               'Resunet':Resunet(out_planes=2)}
     model=model_all[args.net_work]
     print(args.net_work)
     cudnn.benchmark = True
@@ -246,34 +247,9 @@ def main(mode='train',args=None):
     bestdice =[]
     bestacc =0
     if mode=='train':
-        for i in range(1,6):
-          """
-          训练
-          """
-          best_pred,bestacc,bestepo,lastloss=train(args, model, optimizer,criterion,scheduler,dataloader_train, dataloader_val)
-          """
-          保存参数
-          """
-          bestdice.append(best_pred)
-          row=[args.net_work,i+1,best_pred,bestepo,bestacc,args.lr,args.lr_mode,
-               lastloss,args.batch_size,args.crop_height,args.crop_width,args.num_epochs,args.scheduler,
-               args.momentum,args.weight_decay,args.num_classes]
-          """
-          headers = [ 'net', 'train-epo','bestdice','bestepo', 'bestacc', 'lr', 'lr_mode','lastloss',
-               'batchsize','crop_height','crop_width',
-               'num_epochs','scheduler','momentum','weight_decay',
-               'num_classes']
-          """
-          with open('./data.csv', 'a', newline='')as f:
-              f_csv = csv.writer(f)
-              rows = ['1', '2', '3']
-              f_csv.writerow(row)
-    sum =0
-    for i,data in bestdice:
-        print("dice{}:{:.4f}".format(i,data))
-        sum+=data
-    print("avgdice:{:.4f}".format(data/len(bestdice)))
+        best_pred,bestacc,bestepo,lastloss=train(args, model, optimizer,criterion,scheduler,dataloader_train, dataloader_val)
 
+        return  best_pred,bestacc,bestepo,lastloss
     if mode=='test':
         test(model,dataloader_test, args)
 
@@ -286,7 +262,36 @@ if __name__ == '__main__':
     modes=args.mode
 
     if modes=='train':
-        main(mode='train',args=args)
+        bestdice = []
+        for i in range(1,6):
+          bestdice = []
+          """
+          训练
+          """
+          best_pred,bestacc,bestepo,lastloss=main(mode='train',args=args)
+          """
+          保存参数
+          """
+          bestdice.append(best_pred)
+          row=[args.net_work,i,best_pred,bestepo,bestacc,args.lr,args.lr_mode,
+               lastloss,args.batch_size,args.crop_height,args.crop_width,args.num_epochs,args.scheduler,
+               args.momentum,args.weight_decay,args.num_classes]
+          """
+          headers = [ 'net', 'train-epo','bestdice','bestepo', 'bestacc', 'lr', 'lr_mode','lastloss',
+               'batchsize','crop_height','crop_width',
+               'num_epochs','scheduler','momentum','weight_decay',
+               'num_classes']
+          """
+          with open('./data.csv', 'a', newline='')as f:
+              f_csv = csv.writer(f)
+              rows = ['1', '2', '3']
+              f_csv.writerow(row)
+        sum = 0
+        for i, data in enumerate(bestdice):
+            print("dice{}:{:.4f}".format(i, data))
+            sum += data
+        print("avgdice:{:.4f}".format(data / len(bestdice)))
+
     elif modes=='test':
         main(mode='test',args=args)
 

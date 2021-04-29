@@ -68,30 +68,30 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             ¼ÆËãËðÊ§º¯Êý
             
             """
-            semVector_1_1, \
-            semVector_2_1, \
-            semVector_1_2, \
-            semVector_2_2, \
-            semVector_1_3, \
-            semVector_2_3, \
-            semVector_1_4, \
-            semVector_2_4, \
-            inp_enc0, \
-            inp_enc1, \
-            inp_enc2, \
-            inp_enc3, \
-            inp_enc4, \
-            inp_enc5, \
-            inp_enc6, \
-            inp_enc7, \
-            out_enc0, \
-            out_enc1, \
-            out_enc2, \
-            out_enc3, \
-            out_enc4, \
-            out_enc5, \
-            out_enc6, \
-            out_enc7, \
+            # semVector_1_1, \
+            # semVector_2_1, \
+            # semVector_1_2, \
+            # semVector_2_2, \
+            # semVector_1_3, \
+            # semVector_2_3, \
+            # semVector_1_4, \
+            # semVector_2_4, \
+            # inp_enc0, \
+            # inp_enc1, \
+            # inp_enc2, \
+            # inp_enc3, \
+            # inp_enc4, \
+            # inp_enc5, \
+            # inp_enc6, \
+            # inp_enc7, \
+            # out_enc0, \
+            # out_enc1, \
+            # out_enc2, \
+            # out_enc3, \
+            # out_enc4, \
+            # out_enc5, \
+            # out_enc6, \
+            # out_enc7, \
             outputs0, \
             outputs1, \
             outputs2, \
@@ -120,25 +120,25 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             loss1_2 = CE_loss(outputs1_2, Segmentation_class)
             loss2_2 = CE_loss(outputs2_2, Segmentation_class)
             loss3_2 = CE_loss(outputs3_2, Segmentation_class)
+            #
+            # lossSemantic1 = mseLoss(semVector_1_1, semVector_2_1)
+            # lossSemantic2 = mseLoss(semVector_1_2, semVector_2_2)
+            # lossSemantic3 = mseLoss(semVector_1_3, semVector_2_3)
+            # lossSemantic4 = mseLoss(semVector_1_4, semVector_2_4)
 
-            lossSemantic1 = mseLoss(semVector_1_1, semVector_2_1)
-            lossSemantic2 = mseLoss(semVector_1_2, semVector_2_2)
-            lossSemantic3 = mseLoss(semVector_1_3, semVector_2_3)
-            lossSemantic4 = mseLoss(semVector_1_4, semVector_2_4)
+            # lossRec0 = mseLoss(inp_enc0, out_enc0)
+            # lossRec1 = mseLoss(inp_enc1, out_enc1)
+            # lossRec2 = mseLoss(inp_enc2, out_enc2)
+            # lossRec3 = mseLoss(inp_enc3, out_enc3)
+            # lossRec4 = mseLoss(inp_enc4, out_enc4)
+            # lossRec5 = mseLoss(inp_enc5, out_enc5)
+            # lossRec6 = mseLoss(inp_enc6, out_enc6)
+            # lossRec7 = mseLoss(inp_enc7, out_enc7)
 
-            lossRec0 = mseLoss(inp_enc0, out_enc0)
-            lossRec1 = mseLoss(inp_enc1, out_enc1)
-            lossRec2 = mseLoss(inp_enc2, out_enc2)
-            lossRec3 = mseLoss(inp_enc3, out_enc3)
-            lossRec4 = mseLoss(inp_enc4, out_enc4)
-            lossRec5 = mseLoss(inp_enc5, out_enc5)
-            lossRec6 = mseLoss(inp_enc6, out_enc6)
-            lossRec7 = mseLoss(inp_enc7, out_enc7)
-
-            loss = (loss0 + loss1 + loss2 + loss3 + loss0_2 + loss1_2 + loss2_2 + loss3_2) \
-                    + 0.25 * (lossSemantic1 + lossSemantic2 + lossSemantic3 + lossSemantic4) \
-                    + 0.1 * (
-                                lossRec0 + lossRec1 + lossRec2 + lossRec3 + lossRec4 + lossRec5 + lossRec6 + lossRec7)  # CE_lossG
+            loss = (loss0 + loss1 + loss2 + loss3 + loss0_2 + loss1_2 + loss2_2 + loss3_2)
+                    #+ 0.25 * (lossSemantic1 + lossSemantic2 + lossSemantic3 + lossSemantic4) \
+                    #+ 0.1 * (
+                     #           lossRec0 + lossRec1 + lossRec2 + lossRec3 + lossRec4 + lossRec5 + lossRec6 + lossRec7)  # CE_lossG
           #  loss_aux=criterion[0](main_out,label)
            # loss_main= criterion[1](main_out, label)
             #loss =loss_main+loss_aux

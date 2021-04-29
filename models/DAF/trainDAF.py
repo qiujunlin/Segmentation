@@ -155,7 +155,7 @@ def train(args, model, optimizer, criterion, dataloader_train, dataloader_val):
 
 
 
-          #  loss_aux = F.nll_loss(main_out, label, weight=None)
+           #  loss_aux = F.nll_loss(main_out, label, weight=None)
            # loss_main = criterion[1](main_out, label)
 
             #loss = loss_main + loss_aux

@@ -5,12 +5,12 @@ Created on Tue Mar 12 14:03:52 2019
 @author: Administrator
 """
 class DefaultConfig(object):
-    num_epochs=300
+    num_epochs=30
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
-    crop_height=256
-    crop_width=512
+    crop_height=112
+    crop_width=112
     batch_size=1
     
     #dataset

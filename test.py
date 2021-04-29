@@ -231,8 +231,8 @@ def csv1():
     with open('./data.csv', 'a', newline='')as f:
       f_csv = csv.writer(f)
       f_csv.writerow(headers)
-      rows=['1','2','3']
-      f_csv.writerow(rows)
+     # rows=['1','2','3']
+      #f_csv.writerow(rows)
     #f_csv.writerows(rows)
 #@print(ner(1,2))
 csv1()

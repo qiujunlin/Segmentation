@@ -458,4 +458,4 @@ if __name__ == '__main__':
     model = CPFNet(out_planes=2)
 #    model = model.cuda()
     a= torch.rand((1,3,448,448))
-    print(summary(model, (3, 224, 512)))
+    print(model(a))

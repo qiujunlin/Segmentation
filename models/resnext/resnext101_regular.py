@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 import resnext_101_32x4d_
-resnext_101_32_path = 'D:\workplace/resnext_101_32x4d.pth'
+resnext_101_32_path = 'E:\workspace\python/resnext_101_32x4d.pth'
 class ResNeXt101(nn.Module):
     def __init__(self):
         super(ResNeXt101, self).__init__()
@@ -23,3 +23,9 @@ class ResNeXt101(nn.Module):
         layer3 = self.layer3(layer2)
         layer4 = self.layer4(layer3)
         return layer4
+if __name__ == '__main__':
+    from torchsummary import summary
+    model = ResNeXt101()
+    #    model = model.cuda()
+    a = torch.rand((1, 3, 448, 448))
+    print(model(a))

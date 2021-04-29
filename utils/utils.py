@@ -71,7 +71,7 @@ def val_sigmod(args, model, dataloader):
             slice_num = labels[1].long().item()  # 获取总共的label数量  86
             # get RGB predict image
             predicts= model(data)  # 预测结果  经过sigmod后的 float32
-            predict = (predict>0.5).float()  # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
+            predict = (predicts[-1]>0.5).float()  # int64 # n h w 获取的是结果 预测的结果是属于哪一类的
             batch_size = predict.size()[0]  # 当前的批量大小   1
             counter += batch_size  # 每次加一
             cur_cube.append(predict)  # (1,h,w)
@@ -79,11 +79,26 @@ def val_sigmod(args, model, dataloader):
         predict_cube = torch.stack(cur_cube, dim=0).squeeze()  # (n,h,w) int 64 tensor
         label_cube = torch.stack(cur_label_cube, dim=0).squeeze()  # n hw float32 tensor
         # 计算
-        Dice,acc = eval_multi_seg(predict_cube, label_cube, args.num_classes)
+        Dice,acc = eval_sseg(predict_cube, label_cube)
+        tbar.set_description('Dice1: %.3f,ACC: %.3f' % (Dice, acc))
         print('Dice1:', Dice)
         print('Acc:', acc)
         return Dice, acc
 
+def eval_sseg(predict, target):
+    """
+       返回多分类的损失函数
+       """
+    # pred_seg=torch.argmax(torch.exp(predict),dim=1).int()
+    pred_seg = predict.data.cpu().numpy()  # n h w int64 ndarray
+    label_seg = target.data.cpu().numpy().astype(dtype=np.int)  # n h w float32  -> int32 ndarray
+    assert (pred_seg.shape == label_seg.shape)
+    acc = (pred_seg == label_seg).sum() / (
+                pred_seg.shape[0] * pred_seg.shape[1] * pred_seg.shape[2])  # acc 就是所有相同的像素值占总像素的大小
+    overlap = ((pred_seg == 1) * (label_seg == 1)).sum()
+    union = (pred_seg == 1).sum() + (label_seg == 1).sum()
+    Dice=((2 * overlap + 0.1) / (union + 0.1))
+    return Dice, acc
 
 def save_checkpoint(state,best_pred, epoch,is_best,net,checkpoint_path,filename='./checkpoint/checkpoint.pth.tar'):
     """
