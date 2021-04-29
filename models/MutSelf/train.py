@@ -207,7 +207,7 @@ def test(model,dataloader, args):
             """
             Êä³öÔ¤²â
             """
-            aux_pred,predict = model(data)
+            predict = model(data)
             predict=torch.argmax(torch.exp(predict),dim=1)
             pred=predict.data.cpu().numpy()
 

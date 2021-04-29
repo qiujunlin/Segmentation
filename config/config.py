@@ -39,7 +39,7 @@ class DefaultConfig(object):
     early_stopping=-1
 
     # train and test way
-    mode='train'
+    mode='test'
     num_classes=2
 
     # special model unet++
@@ -48,7 +48,7 @@ class DefaultConfig(object):
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_BaseNet_053_0.8837.pth.tar'
+    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_DAF_stack_025_0.6128.pth.tar'
     save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
     
 
