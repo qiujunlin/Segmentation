@@ -6,7 +6,7 @@ Created on Wed Sep 19 10:59:53 2018
 import numpy as np
 import os 
 from PIL import Image
-from OCT.CPFNet.utils.config import DefaultConfig
+from config.config import DefaultConfig
 size = (448, 256)
 
 def evaluate(path_predict):

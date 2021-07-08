@@ -9,8 +9,8 @@ class DefaultConfig(object):
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
-    crop_height=112
-    crop_width=112
+    crop_height=224
+    crop_width=224
     batch_size=1
     
     #dataset
@@ -21,15 +21,17 @@ class DefaultConfig(object):
     test_fold = 4
     num_workers = 1
 
+
     #optim
+    optimizer = 'Adam'
     lr=0.01#0.01  如果使用了scheduler 那么就设置为 0.001 如果使用的是不断下降 就使用 0.01
     lr_mode= 'poly'
-    net_work= 'DAF_stack'
+    net_work= 'BaseNet'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
 
-    # scheduler
 
+    # scheduler
     scheduler = ""  # 学习率优化器
     min_lr = 1e-5
     factor=0.1
@@ -39,8 +41,9 @@ class DefaultConfig(object):
     early_stopping=-1
 
     # train and test way
-    mode='test'
-    num_classes=2
+    mode='train'
+    num_classes=1
+    augmentations = 'False'
 
     # special model unet++
     deep_supervision = True
@@ -48,7 +51,7 @@ class DefaultConfig(object):
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_DAF_stack_025_0.6128.pth.tar'
+    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_BaseNet_005_0.5417.pth.tar'
     save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
     
 

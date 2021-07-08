@@ -326,12 +326,3 @@ def colour_code_segmentation(image, label_values):
 
 	return x
 
-#def compute_global_accuracy(pred, label):
-#	pred = pred.flatten()
-#	label = label.flatten()
-#	total = len(label)
-#	count = 0.0
-#	for i in range(total):
-#		if pred[i] == label[i]:
-#			count = count + 1.0
-#	return float(count) / float(total)
