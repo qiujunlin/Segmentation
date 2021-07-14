@@ -15,6 +15,7 @@ class DiceLoss(nn.Module):
         Dice=(2*intersect+self.smooth)/(union+self.smooth)
         dice_loss=1-Dice
         return dice_loss
+
 class Multi_DiceLoss(nn.Module):
 
     def __init__(self, class_num=5,smooth=0.001):

@@ -32,8 +32,7 @@ class CPFNet(nn.Module):
             expan=[128,256,512]
             spatial_ch=[64,64]
             conv_channel_up=[128,256,512]
-      
-        conv_channel = expan[0] 
+
         
 
 
@@ -65,7 +64,6 @@ class CPFNet(nn.Module):
         x = self.backbone.conv1(x)
         x = self.backbone.bn1(x)
         c1 = self.backbone.relu(x)#1/2  64
-        
         x = self.backbone.maxpool(c1)
         c2 = self.backbone.layer1(x)#1/4   64
         c3 = self.backbone.layer2(c2)#1/8   128
@@ -84,9 +82,6 @@ class CPFNet(nn.Module):
         d2=self.relu(self.decoder3(d3)+c2) #64
         d1=self.decoder2(d2)+c1 #32
         main_out=self.main_head(d1)
-       # main_out=F.log_softmax(main_out,dim=1)
-
-            #(1,2,448,448)
         return main_out
     
     

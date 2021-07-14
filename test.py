@@ -8,7 +8,7 @@ from config.config import DefaultConfig
 import torch.nn.functional as F
 import torch.nn.functional as F
 import  os
-
+import imageio
 from  model.BaseNet import  CPFNet
 
 
@@ -16,17 +16,18 @@ def generate_model(args):
 
     model_all = {'BaseNet': CPFNet(out_planes=args.num_classes)}
     model = model_all[args.net_work]
+    model = torch.nn.DataParallel(model).cpu()
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
     print("=> loading pretrained model '{}'".format(args.pretrained_model_path))
-    model.load_state_dict(torch.load(args.pretrained_model_path)['state_dict'])
+    model.load_state_dict(torch.load(args.pretrained_model_path,map_location=torch.device('cpu'))['state_dict'])
     return model
 
 def test():
     print('loading data......')
     args =  DefaultConfig()
     dataset_path = os.path.join(args.data, args.dataset)
-    dataset_test = TestDataset(dataset_path, scale=(args.crop_height, args.crop_width), mode='test')
+    dataset_test = TestDataset(dataset_path, scale=(args.crop_height, args.crop_width), mode='val')
     dataloader_test = DataLoader(
         dataset_test,
         batch_size=1,
@@ -37,7 +38,7 @@ def test():
     )
     total_batch = int(len(dataset_test) / 1)
     model = generate_model(args)
-    model.cuda()
+#    model.cuda()
 
     model.eval()
 
@@ -47,7 +48,7 @@ def test():
 
     with torch.no_grad():
 
-        for i, (img,gt) in enumerate(dataloader_test):
+        for i, (img,gt,name) in enumerate(dataloader_test):
             if torch.cuda.is_available() and args.use_gpu:
                 img = img.cuda()
                 gt = gt.cuda()

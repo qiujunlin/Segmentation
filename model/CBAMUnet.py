@@ -71,7 +71,7 @@ class CBAMUnet(nn.Module):
         d2 = self.relu(self.decoder3(d3) + self.cbam2(c2))  # 64
         d1 = self.decoder2(d2) + self.cbam1(c1)  # 32
         main_out = self.main_head(d1)
-        main_out = F.log_softmax(main_out, dim=1)
+       # main_out = F.log_softmax(main_out, dim=1)
 
         # (1,2,448,448)
         return main_out

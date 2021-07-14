@@ -115,7 +115,7 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             """
             ¼ÆËãËðÊ§º¯Êý
             """
-           # loss_aux=criterion[0](main_out,label)
+            # loss_aux=criterion[0](main_out,label)
             #loss_main= criterion[1](main_out, label)
             #loss =loss_main+loss_aux
             loss =  structure_loss(main_out,label)
@@ -279,9 +279,9 @@ def main(mode='train',args=None):
     """
      loss
     """
-    criterion_aux=nn.NLLLoss(weight=None)
-    criterion_main=LS.Multi_DiceLoss(class_num=args.num_classes)
-    criterion=[criterion_aux,criterion_main]
+    criterion_1=nn.BCEWithLogitsLoss(weight=None)
+    criterion_2=LS.DiceLoss(class_num=args.num_classes)
+    criterion=[criterion_1,criterion_2]
 
 
     if mode=='train':

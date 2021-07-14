@@ -105,8 +105,11 @@ class TestDataset(torch.utils.data.Dataset):
         gt = self.binary_loader(self.gts[index])
         image = self.img_transform(image)
         gt = self.gt_transform(gt)
+        name = self.images[index].split('/')[-1]
+        if name.endswith('.png'):
+            name = name.split('.png')[0] + '.jpg'
        # print(gt.shape[1:])
-        return image, gt
+        return image, gt,name
 
 
     def rgb_loader(self, path):

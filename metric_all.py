@@ -7,10 +7,11 @@ import numpy as np
 import os 
 from PIL import Image
 from config.config import DefaultConfig
-size = (448, 256)
+size = (352, 352)
 
 def evaluate(path_predict):
-    path_true=os.path.join(DefaultConfig.data, 'test', 'mask')
+   # path_true=os.path.join(DefaultConfig.data, 'test', 'mask')
+    path_true = r'E:\dataset\Kvasir-SEG-900/val\mask'
     TP=FPN=0
     Jaccard=[]
     ds = []
@@ -22,12 +23,14 @@ def evaluate(path_predict):
         if files:
             for file in files:
                 pre_file_path=os.path.join(roots, file)
-                true_file_path=os.path.join(path_true, file)
-                img_pre = np.array(Image.open(pre_file_path).convert("L"))
-                img_pre = img_pre / 255
+                true_file_path=os.path.join(path_true, file.replace("png", "jpg"))
+                img_pre = np.array(Image.open(pre_file_path).convert("L").resize(size))
+                img_pre = (img_pre >= 100)
+               # img_pre = img_pre / 255
                 img_true = Image.open(true_file_path).convert("L")
                 img_true = np.array(img_true.resize(size))
-                img_true = img_true / 255
+               # img_true = img_true / 255
+                img_true = (img_true >= 100)
                 img_true = np.array(img_true).astype(dtype=np.int)
                 img_pre = np.array(img_pre).astype(dtype=np.int)
                 inter = np.sum(img_pre*img_true)
@@ -60,5 +63,5 @@ def evaluate(path_predict):
 
 
 if __name__ == '__main__':
-    path = r'/home/tang/zhang/segment/compare/BUSI/ANN/result'
+    path = r'E:\dataset\Kvasir-SEG-900\output'
     evaluate(path)

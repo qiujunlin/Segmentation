@@ -9,13 +9,13 @@ class DefaultConfig(object):
     epoch_start_i=0
     checkpoint_step=5
     validation_step=1
-    crop_height=224
-    crop_width=224
+    crop_height=352
+    crop_width=352
     batch_size=1
     
     #dataset
-    data='E:\dataset/1050ti'
-    dataset="data_med4"
+    data='E:\dataset'
+    dataset="Kvasir-SEG-900"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
     k_fold = 4
     test_fold = 4
@@ -51,7 +51,7 @@ class DefaultConfig(object):
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_BaseNet_005_0.5417.pth.tar'
+    pretrained_model_path='E:\checkpoints\model_BaseNet_045_0.9215.pth.tar'
     save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
     
 
