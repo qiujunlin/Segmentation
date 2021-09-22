@@ -1,5 +1,5 @@
 import torch
-from tqdm import tqdm
+import tqdm
 from utils.metrics import evaluate
 from torch.utils.data import DataLoader
 from utils.metrics import Metrics
@@ -17,11 +17,9 @@ from model.CBAMUnet import CBAMUnet
 def generate_model(args):
     model_all = {'BaseNet': CBAMUnet(out_planes=args.num_classes)}
     model = model_all[args.net_work]
-    model = torch.nn.DataParallel(model).cpu()
-    if torch.cuda.is_available() and args.use_gpu:
-        model = torch.nn.DataParallel(model).cuda()
+    model = torch.nn.DataParallel(model)
     print("=> loading pretrained model '{}'".format(args.pretrained_model_path))
-    model.load_state_dict(torch.load(args.pretrained_model_path, map_location=torch.device('cpu'))['state_dict'])
+    model.load_state_dict(torch.load(args.pretrained_model_path)['state_dict'])
     return model
 
 
@@ -33,7 +31,7 @@ def test():
     for dataset in tqdm.tqdm(args.testdataset, desc='Total TestSet', total=len(args.testdataset), position=0,
                          bar_format='{desc:<30}{percentage:3.0f}%|{bar:50}{r_bar}'):
 
-            dataset_path = os.path.join(args.data, args.dataset)
+            dataset_path = os.path.join(args.data, dataset)
             dataset_test = TestDataset(dataset_path, scale=(args.crop_height, args.crop_width), mode='val')
             dataloader_test = DataLoader(
                 dataset_test,
@@ -43,7 +41,10 @@ def test():
                 pin_memory=True,
                 drop_last=False
             )
-            save_path = os.path.join(args.data, args.dataset,"output")
+            save_path = os.path.join(args.data, dataset,"output/")
+            # 判断结果
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
 
             model.eval()
 
@@ -57,7 +58,10 @@ def test():
                     out = F.upsample(output, size=gt.shape[2:], mode='bilinear', align_corners=False)
                     out = out.data.sigmoid().cpu().numpy().squeeze()
                     out = (out - out.min()) / (out.max() - out.min() + 1e-8)
-                    Image.fromarray(((out > 0.5) * 255).astype(np.uint8)).save(os.path.join(save_path, name[0]))
+                    #save_path = os.path.join(save_path, name)
+                    path = save_path + "".join(name)
+                    imageio.imwrite(path, out)
+                   # Image.fromarray(((out > 0.5) * 255).astype(np.uint8)).save(os.path.join(save_path, name[0]))
 
 
 if __name__ == '__main__':

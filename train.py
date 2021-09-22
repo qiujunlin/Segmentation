@@ -291,8 +291,6 @@ if __name__ == '__main__':
 
     if modes=='train':
         best_pred=main(mode='train',args=args)
-
-
     elif modes=='test':
         main(mode='test',args=args)
 

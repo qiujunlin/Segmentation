@@ -17,7 +17,7 @@ class DefaultConfig(object):
     data='E:\dataset\data\TestDataset'
     dataset="Kvasir-SEG-900"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
-    testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']
+    testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
     k_fold = 4
     test_fold = 4
     num_workers = 1

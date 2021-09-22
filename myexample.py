@@ -228,10 +228,8 @@ num_epochs=100
 
 import  csv
 def csv1():
-    headers = ['net', 'train-epo', 'bestdice', 'lr', 'lr_mode',
-               'batchsize', 'crop_height', 'crop_width',
-               'num_epochs', 'scheduler', 'momentum', 'weight_decay',
-               'num_classes']
+    headers = ['net','train_path','recall', 'specificity', 'precision', 'F1', 'F2',
+                           'ACC_overall', 'IoU_poly', 'IoU_bg', 'IoU_mean', 'Dice']
     with open('./data.csv', 'a', newline='')as f:
       f_csv = csv.writer(f)
       f_csv.writerow(headers)
@@ -248,4 +246,4 @@ def charnge():
 
     save_path = os.path.join(args.data, args.dataset, "output")
     print(save_path)
-charnge()
+csv1()

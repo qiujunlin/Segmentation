@@ -3,7 +3,7 @@ import argparse
 import tqdm
 import yaml
 import sys
-
+import  csv
 import numpy as np
 
 from PIL import Image
@@ -73,6 +73,14 @@ def eval():
                  metrics_result['F1'], metrics_result['F2'], metrics_result['ACC_overall'],
                  metrics_result['IoU_poly'], metrics_result['IoU_bg'], metrics_result['IoU_mean'],
                  metrics_result['Dice']))
+        row = [args.mode,args.pretrained_model_path,metrics_result['recall'], metrics_result['specificity'], metrics_result['precision'],
+                 metrics_result['F1'], metrics_result['F2'], metrics_result['ACC_overall'],
+                 metrics_result['IoU_poly'], metrics_result['IoU_bg'], metrics_result['IoU_mean'],
+                 metrics_result['Dice']]
+        with open('./data.csv', 'a', newline='')as f:
+            f_csv = csv.writer(f)
+            f_csv.writerow(row)
+
 
 
 
