@@ -4,7 +4,7 @@ from torchvision import models
 import torch.nn as nn
 from model.resnet import resnet34
 from torch.nn import functional as F
-import torchsummary
+#import torchsummary
 from torch.nn import init
 from modules.attention.CBAM import  CBAM
 class CBAMUnet(nn.Module):

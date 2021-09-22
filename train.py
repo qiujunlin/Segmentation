@@ -80,7 +80,6 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
 
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
     log_dir = os.path.join(args.log_dirs, current_time + '_' + socket.gethostname())
-    writer = SummaryWriter(log_dir=log_dir)
     step = 0
     best_pred=0.0
 
@@ -122,20 +121,17 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             loss.backward()
             optimizer.step()
 
-
             tq.update(args.batch_size)
             train_loss += loss.item()
 
             tq.set_postfix(loss='%.6f' % (train_loss/(i+1))) #显示进度条信息
             step += 1
 
-            if step%10==0:
-                writer.add_scalar('Train/loss_step', loss, step)
             loss_record.append(loss.item())
 
         tq.close()
         loss_train_mean = np.mean(loss_record)
-        writer.add_scalar('Train/loss_epoch', float(loss_train_mean), epoch)
+
         print('loss for train : %f' % (loss_train_mean))
         
 
@@ -150,15 +146,12 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
             elif args.scheduler == 'ReduceLROnPlateau':
                 scheduler.step(metrics_result['Dice'])
 
-
-            writer.add_scalar('Valid/Dice1_val', Dice, epoch)
             """
             保存最好的dice,如果当前值比之前的大 就保存 否则就算了
             """
             is_best=Dice > best_pred
             best_pred = max(best_pred, Dice)
             checkpoint_dir = args.save_model_path
-            # checkpoint_dir=os.path.join(checkpoint_dir_root,str(k_fold))
             if not os.path.exists(checkpoint_dir):
                 os.makedirs(checkpoint_dir)
             checkpoint_latest =os.path.join(checkpoint_dir, 'checkpoint_latest.pth.tar')
@@ -167,6 +160,7 @@ def train(args, model, optimizer,criterion, scheduler,dataloader_train, dataload
                     'state_dict': model.state_dict(),
                     'best_dice': best_pred,
                    }, best_pred,epoch,is_best, args.net_work,checkpoint_dir,filename=checkpoint_latest)
+    print("beatdice:{:.4f}".format(best_pred))
     return best_pred
 
 
@@ -234,7 +228,6 @@ def main(mode='train',args=None):
 
     # build model
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
-    
 
     """
     load model
@@ -297,34 +290,8 @@ if __name__ == '__main__':
     modes=args.mode
 
     if modes=='train':
-        bestdice = []
-        for i in range(1,2):
-          bestdice = []
-          """
-          训练
-          """
-          best_pred=main(mode='train',args=args)
-          """
-          保存参数
-          """
-          bestdice.append(best_pred)
-          row=[args.net_work,i,best_pred,args.lr,args.lr_mode
-               ,args.batch_size,args.crop_height,args.crop_width,args.num_epochs,args.scheduler,
-               args.momentum,args.weight_decay,args.num_classes]
-          """
-          headers = [ 'net', 'train-epo','bestdice','bestepo', 'bestacc', 'lr', 'lr_mode','lastloss',
-               'batchsize','crop_height','crop_width',
-               'num_epochs','scheduler','momentum','weight_decay',
-               'num_classes']
-          """
-          with open('./data.csv', 'a', newline='')as f:
-              f_csv = csv.writer(f)
-              f_csv.writerow(row)
-        sum = 0
-        for i, data in enumerate(bestdice):
-            print("dice{}:{:.4f}".format(i, data))
-            sum += data
-        print("avgdice:{:.4f}".format(data / len(bestdice)))
+        best_pred=main(mode='train',args=args)
+
 
     elif modes=='test':
         main(mode='test',args=args)

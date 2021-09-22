@@ -88,8 +88,8 @@ class TestDataset(torch.utils.data.Dataset):
     def __init__(self, dataset_path,scale=(256,448), mode='test'):
         super().__init__()
         self.mode = mode
-        self.img_path=dataset_path+'/'+mode+'/img/'
-        self.mask_path=dataset_path+'/'+mode+'/mask/'
+        self.img_path=dataset_path+'/images/'
+        self.mask_path=dataset_path+'/masks/'
         self.images = [self.img_path + f for f in os.listdir(self.img_path) if f.endswith('.jpg') or f.endswith('.png')]
         self.gts = [self.mask_path + f for f in os.listdir(self.mask_path) if f.endswith('.png') or f.endswith(".jpg")]
         self.img_transform = transforms.Compose([

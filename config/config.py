@@ -14,9 +14,10 @@ class DefaultConfig(object):
     batch_size=1
     
     #dataset
-    data='E:\dataset'
+    data='E:\dataset\data\TestDataset'
     dataset="Kvasir-SEG-900"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
+    testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']
     k_fold = 4
     test_fold = 4
     num_workers = 1
@@ -51,7 +52,7 @@ class DefaultConfig(object):
     
     cuda='0'
     use_gpu=True
-    pretrained_model_path='E:\checkpoints\model_BaseNet_045_0.9215.pth.tar'
+    pretrained_model_path='H:\checkpoints\model_CBAMUnet_064_0.9335.pth.tar'
     save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
     
 

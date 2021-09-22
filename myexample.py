@@ -5,6 +5,10 @@ import numpy as np
 import  torch.nn as nn
 import  torchvision.models as models
 from PIL import Image
+
+from config.config import DefaultConfig
+
+
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
@@ -238,14 +242,10 @@ def csv1():
 def rangess():
     for i in range(1,2):
         print(i)
-
+import  tqdm
 def charnge():
-    image_path = 'E:\dataset/1050ti/data_med4/test\mask'
-    fold = os.listdir(image_path)
+    args = DefaultConfig()
 
-    for file  in fold:
-        Olddir = os.path.join(image_path, file)
-        Newdir = os.path.join(Olddir.replace('_mask',''))
-        os.rename(Olddir, Newdir)
-        print(file)
+    save_path = os.path.join(args.data, args.dataset, "output")
+    print(save_path)
 charnge()
