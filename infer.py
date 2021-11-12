@@ -24,11 +24,8 @@ parser.add_argument('--pth_path', type=str, default='H:\checkpoints\model_CBAMUn
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
 
- for _data_name in [ 'CVC-300']:
-
-    ##### put ur data_path here #####E:\dataset\data\TestDataset\CVC-300\output
+ for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
     data_path = 'E:\dataset\data\TestDataset\{}\\'.format(_data_name)
-    #####                       #####
 
     save_path = 'E:\dataset\data\TestDataset\{}\output/'.format(_data_name)
     opt = parser.parse_args()
@@ -40,7 +37,7 @@ if __name__ == '__main__':
     model.eval()
 
     os.makedirs(save_path, exist_ok=True)
-    test_loader1 = TestDataset(data_path, opt.testsize,mode='val')
+    test_loader1 = TestDataset(data_path, opt.testsize)
     test_loader = DataLoader(
         test_loader1,
         batch_size=1,

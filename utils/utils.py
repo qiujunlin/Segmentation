@@ -1,5 +1,9 @@
 # coding=gbk
 #import torch.nn as nn
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
 
 import torch
 from torch.nn import functional as F
@@ -12,6 +16,27 @@ import shutil
 #import math
 import tqdm
 
+class AvgMeter(object):
+    def __init__(self, num=40):
+        self.num = num
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+        self.losses = []
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+        self.losses.append(val)
+
+    def show(self):
+        return torch.mean(torch.stack(self.losses[np.maximum(len(self.losses)-self.num, 0):]))
 
 def val_softmax(args, model, dataloader):
     print('\n')
@@ -100,14 +125,23 @@ def eval_sseg(predict, target):
     Dice=((2 * overlap + 0.1) / (union + 0.1))
     return Dice, acc
 
-def save_checkpoint(state,best_pred, epoch,is_best,net,checkpoint_path,filename='./checkpoint/checkpoint.pth.tar'):
-    """
-    保存训练参数
-    """
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, osp.join(checkpoint_path,'model_{}_{:03d}_{:.4f}.pth.tar'.format(net,(epoch + 1),best_pred)))
 
+def adjust_lr(optimizer, init_lr, epoch, decay_rate=0.1, decay_epoch=30):
+    decay = decay_rate ** (epoch // decay_epoch)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] *= decay
+
+def clip_gradient(optimizer, grad_clip):
+    """
+    For calibrating mis-alignment gradient via cliping gradient technique
+    :param optimizer:
+    :param grad_clip:
+    :return:
+    """
+    for group in optimizer.param_groups:
+        for param in group['params']:
+            if param.grad is not None:
+                param.grad.data.clamp_(-grad_clip, grad_clip)
 
 
 def adjust_learning_rate(opt, optimizer, epoch):
@@ -138,8 +172,8 @@ def one_hot_it(label, label_info):
 		semantic_map.append(class_map)
 	semantic_map = np.stack(semantic_map, axis=-1)
 	return semantic_map
-    
-    
+
+
 def compute_score(predict, target, forground = 1,smooth=1):
     score = 0
     count = 0
@@ -154,175 +188,110 @@ def compute_score(predict, target, forground = 1,smooth=1):
 
     #print('overlap:',overlap)
     dice=(2*overlap +smooth)/ (union+overlap+smooth)
-    
+
     precsion=((predict == target).sum()+smooth) / (target.shape[0]*target.shape[1]+smooth)
-    
+
     jaccard=(overlap+smooth) / (union+smooth)
 
     Sensitivity=(overlap+smooth) / ((target == forground).sum()+smooth)
 
     Specificity=(TN+smooth) / (FP+TN+smooth)
-    
+
 
     return dice,precsion,jaccard,Sensitivity,Specificity
 
 
-def eval_multi_seg(predict, target,num_classes):
-    """
-    返回多分类的损失函数
-    """
-    # pred_seg=torch.argmax(torch.exp(predict),dim=1).int()
-    pred_seg = predict.data.cpu().numpy() # n h w int64 ndarray
-    label_seg = target.data.cpu().numpy().astype(dtype=np.int) # n h w float32  -> int32 ndarray
-    assert(pred_seg.shape == label_seg.shape)
-    acc=(pred_seg==label_seg).sum()/(pred_seg.shape[0]*pred_seg.shape[1]*pred_seg.shape[2])  #acc 就是所有相同的像素值占总像素的大小
-    Dice=[]
-    True_label=[]
-    for classes in range(1,num_classes):  # 循环遍历说有的类型  没有遍历0 的原因是 0 是背景 说以就不便利
-        overlap=((pred_seg==classes)*(label_seg==classes)).sum()
-        union=(pred_seg==classes).sum()+(label_seg==classes).sum()
-        Dice.append((2*overlap+0.1)/(union+0.1))
-        True_label.append((label_seg==classes).sum())
-    return Dice,acc
-
-
-def eval_seg(predict, target, forground = 1):
-    pred_seg=torch.round(predict).int()
-    pred_seg = pred_seg.data.cpu().numpy()
-    label_seg = target.data.cpu().numpy().astype(dtype=np.int)
-    assert(pred_seg.shape == label_seg.shape)
-
-    Dice = []
-    Precsion = []
-    Jaccard = []
-    n = pred_seg.shape[0]
-    
-    for i in range(n):
-        dice,precsion,jaccard = compute_score(pred_seg[i],label_seg[i])
-        Dice .append(dice)
-        Precsion .append(precsion)
-        Jaccard.append(jaccard)
-
-    return Dice,Precsion,Jaccard
-    
-
-def batch_pix_accuracy(pred,label,nclass=1):
-    if nclass==1:
-        pred=torch.round(torch.sigmoid(pred)).int()
-        pred=pred.cpu().numpy()
-    else:
-        pred=torch.max(pred,dim=1)
-        pred=pred.cpu().numpy()
-    label=label.cpu().numpy()
-    pixel_labeled = np.sum(label >=0)
-    pixel_correct=np.sum(pred==label)
-    
-    assert pixel_correct <= pixel_labeled, \
-        "Correct area should be smaller than Labeled"
-    
-    return pixel_correct,pixel_labeled
-
-def batch_intersection_union(predict, target, nclass):
-
-    """Batch Intersection of Union
-    Args:
-        predict: input 4D tensor
-        target: label 3D tensor
-        nclass: number of categories (int),note: not include background
-    """
-    if nclass==1:
-        pred=torch.round(torch.sigmoid(predict)).int()
-        pred=pred.cpu().numpy()
-        target = target.cpu().numpy()
-        area_inter=np.sum(pred*target)
-        area_union=np.sum(pred)+np.sum(target)-area_inter
-
-        return area_inter,area_union
 
 
 
 
-    if nclass>1:
-        _, predict = torch.max(predict, 1)
-        mini = 1
-        maxi = nclass
-        nbins = nclass
-        predict = predict.cpu().numpy() + 1
-        target = target.cpu().numpy() + 1
-        # target = target + 1
-        
-        predict = predict * (target > 0).astype(predict.dtype)
-        intersection = predict * (predict == target)
-        # areas of intersection and union
-        area_inter, _ = np.histogram(intersection, bins=nbins-1, range=(mini+1, maxi))
-        area_pred, _ = np.histogram(predict, bins=nbins-1, range=(mini+1, maxi))
-        area_lab, _ = np.histogram(target, bins=nbins-1, range=(mini+1, maxi))
-        area_union = area_pred + area_lab - area_inter
-        assert (area_inter <= area_union).all(), \
-        	"Intersection area should be smaller than Union area"
-        return area_inter, area_union
-    
+def structure_loss(pred, mask):
+    weit = 1 + 5*torch.abs(F.avg_pool2d(mask, kernel_size=31, stride=1, padding=15) - mask)
+    wbce = F.binary_cross_entropy_with_logits(pred, mask, reduce='none')
+    wbce = (weit*wbce).sum(dim=(2, 3)) / weit.sum(dim=(2, 3))
 
-def pixel_accuracy(im_pred, im_lab):
-    im_pred = np.asarray(im_pred)
-    im_lab = np.asarray(im_lab)
-
-    # Remove classes from unlabeled pixels in gt image. 
-    # We should not penalize detections in unlabeled portions of the image.
-    pixel_labeled = np.sum(im_lab > 0)
-    pixel_correct = np.sum((im_pred == im_lab) * (im_lab > 0))
-    #pixel_accuracy = 1.0 * pixel_correct / pixel_labeled
-    return pixel_correct, pixel_labeled
-
-def reverse_one_hot(image):
-	"""
-	Transform a 2D array in one-hot format (depth is num_classes),
-	to a 2D array with only 1 channel, where each pixel value is
-	the classified class key.
-
-	# Arguments
-		image: The one-hot format image
-
-	# Returns
-		A 2D array with the same width and height as the input, but
-		with a depth size of 1, where each pixel value is the classified
-		class key.
-	"""
-	# w = image.shape[0]
-	# h = image.shape[1]
-	# x = np.zeros([w,h,1])
-
-	# for i in range(0, w):
-	#     for j in range(0, h):
-	#         index, value = max(enumerate(image[i, j, :]), key=operator.itemgetter(1))
-	#         x[i, j] = index
-	image = image.permute(1, 2, 0)
-	x = torch.argmax(image, dim=-1)
-	return x
+    pred = torch.sigmoid(pred)
+    inter = ((pred * mask)*weit).sum(dim=(2, 3))
+    union = ((pred + mask)*weit).sum(dim=(2, 3))
+    wiou = 1 - (inter + 1)/(union - inter+1)
+    return (wbce + wiou).mean()
 
 
-def colour_code_segmentation(image, label_values):
-	"""
-    Given a 1-channel array of class keys, colour code the segmentation results.
+class DiceLoss(nn.Module):
+    def __init__(self,smooth=0.01):
+        super(DiceLoss, self).__init__()
+        self.smooth = smooth
+    def forward(self,input, target):
+        # input = torch.sigmoid(input)
+        Dice = Variable(torch.Tensor([0]).float()).cuda()
+        intersect=(input*target).sum()
+        union = torch.sum(input) + torch.sum(target)
+        Dice=(2*intersect+self.smooth)/(union+self.smooth)
+        dice_loss=1-Dice
+        return dice_loss
 
-    # Arguments
-        image: single channel array where each value represents the class key.
-        label_values
+class Multi_DiceLoss(nn.Module):
 
-    # Returns
-        Colour coded image for segmentation visualization
-    """
+    def __init__(self, class_num=5,smooth=0.001):
+        super(Multi_DiceLoss, self).__init__()
+        self.smooth = smooth
+        self.class_num = class_num
+    def forward(self,input, target):
+        input = torch.exp(input)
+        Dice = Variable(torch.Tensor([0]).float()).cuda()
+        for i in range(0,self.class_num):
+            input_i = input[:,i,:,:]
+            target_i = (target == i).float()
+            intersect = (input_i*target_i).sum()
+            union = torch.sum(input_i) + torch.sum(target_i)
+            dice = (2 * intersect + self.smooth) / (union + self.smooth)
+            Dice += dice
+        dice_loss = 1 - Dice/(self.class_num)
+        return dice_loss
 
-	# w = image.shape[0]
-	# h = image.shape[1]
-	# x = np.zeros([w,h,3])
-	# colour_codes = label_values
-	# for i in range(0, w):
-	#     for j in range(0, h):
-	#         x[i, j, :] = colour_codes[int(image[i, j])]
-	label_values = [label_values[key] for key in label_values]
-	colour_codes = np.array(label_values)
-	x = colour_codes[image.astype(int)]
+class EL_DiceLoss(nn.Module):
+    def __init__(self, class_num=2,smooth=1,gamma=0.5):
+        super(EL_DiceLoss, self).__init__()
+        self.smooth = smooth
+        self.class_num = class_num
+        self.gamma = gamma
 
-	return x
+    def forward(self,input, target):
+        input = torch.exp(input)
+        self.smooth = 0.
+        Dice = Variable(torch.Tensor([0]).float()).cuda()
+        for i in range(1,self.class_num):
+            input_i = input[:,i,:,:]
+            target_i = (target == i).float()
+            intersect = (input_i*target_i).sum()
+            union = torch.sum(input_i) + torch.sum(target_i)
+            if target_i.sum() == 0:
+                dice = Variable(torch.Tensor([1]).float()).cuda()
+            else:
+                dice = (2 * intersect + self.smooth) / (union + self.smooth)
+            Dice += (-torch.log(dice))**self.gamma
+        dice_loss = Dice/(self.class_num - 1)
+        return dice_loss
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+
+    def forward(self, inputs, targets):
+        if self.logits:
+            BCE_loss = F.nll_loss(inputs, targets, reduce=False)
+        else:
+            BCE_loss = F.nll_loss(inputs, targets, reduce=False)
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+
+        if self.reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
+
+
 

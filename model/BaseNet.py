@@ -8,7 +8,7 @@ Created on Wed Apr 10 09:57:49 2019
 import torch
 from torchvision import models
 import torch.nn as nn
-from model.resnet import resnet34
+from model.backbone.ResNet import resnet34
 from torch.nn import functional as F
 #import torchsummary
 from torch.nn import init

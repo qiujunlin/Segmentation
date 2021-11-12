@@ -1,12 +1,11 @@
 
 import torch
-from torchvision import models
 import torch.nn as nn
 from model.resnet import resnet34
 from torch.nn import functional as F
 #import torchsummary
 from torch.nn import init
-from modules.attention.CBAM import  CBAM
+from model.module.attention import  CBAM
 class CBAMUnet(nn.Module):
     def __init__(self, out_planes=1, ccm=True, norm_layer=nn.BatchNorm2d, is_training=True, expansion=2,
                  base_channel=32):

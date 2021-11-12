@@ -8,7 +8,7 @@ Created on Wed Apr 10 09:57:49 2019
 import torch
 from torchvision import models
 import torch.nn as nn
-from model.resnet import resnet101
+from model.backbone.ResNet import resnet50
 from torch.nn import functional as F
 import torchsummary
 from torch.nn import init
@@ -18,7 +18,7 @@ class Resunet(nn.Module):
     def __init__(self,out_planes=1,ccm=True,norm_layer=nn.BatchNorm2d,is_training=True,expansion=2,base_channel=32):
         super(Resunet,self).__init__()
         
-        self.backbone =resnet101(pretrained=True)
+        self.backbone =resnet50(pretrained=True)
         self.expansion=expansion
         self.base_channel=base_channel
         if self.expansion==2 and self.base_channel==32:
@@ -54,9 +54,7 @@ class Resunet(nn.Module):
         d2=self.relu(self.decoder3(d3,c2)) #64
         d1=self.decoder2(d2,c1) #32
         main_out=self.main_head(d1)
-        main_out=F.log_softmax(main_out,dim=1)
 
-            #(1,2,448,448)
         return main_out
     
     
@@ -204,6 +202,9 @@ class GlobalAvgPool2d(nn.Module):
 if __name__ == '__main__':
     from torchsummary import summary
     model = Resunet(out_planes=2)
-#    model = model.cuda()
-    a= torch.rand((1,3,448,448))
+    model = model.cuda()
+    a= torch.rand((1,3,448,448)).cuda()
     print(model(a))
+    from torchsummary import summary
+
+    summary(model, input_size=(3, 352, 352))

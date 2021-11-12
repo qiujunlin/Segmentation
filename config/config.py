@@ -1,58 +1,47 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 12 14:03:52 2019
 
-@author: Administrator
-"""
 class DefaultConfig(object):
+
     num_epochs=30
     epoch_start_i=0
-    checkpoint_step=5
+    checkpoint_step=1
     validation_step=1
-    crop_height=352
-    crop_width=352
-    batch_size=1
-    
+    crop_height=16
+    crop_width=16
+    trainsize = 32
+    batch_size=2
+
+
     #dataset
-    data='E:\dataset\data\TestDataset'
-    dataset="Kvasir-SEG-900"
+    train_data_path='E:\dataset\dataset\TrainSmall'
+    test_data_path='E:\dataset\dataset\TestDataset'
+    dataset="Kvasir"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
     testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
-    k_fold = 4
-    test_fold = 4
     num_workers = 1
+
+    clip =  0.5
+    testsize =  (352,352)
 
 
     #optim
     optimizer = 'Adam'
-    lr=0.01#0.01  如果使用了scheduler 那么就设置为 0.001 如果使用的是不断下降 就使用 0.01
+    lr=1e-4
     lr_mode= 'poly'
-    net_work= 'BaseNet'
+    net_work= 'Resunet'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
+    decay_rate = 0.1
+    decay_epoch =50
+    cuda = '0'
+    use_gpu = True
 
-
-    # scheduler
-    scheduler = ""  # 学习率优化器
-    min_lr = 1e-5
-    factor=0.1
-    patience=2
-    milestones='1,2'
-    gamma=2/3
-    early_stopping=-1
-
-    # train and test way
-    mode='train'
     num_classes=1
-    augmentations = 'False'
+    augmentations =True
 
-    # special model unet++
-    deep_supervision = True
 
-    
-    cuda='0'
-    use_gpu=True
-    pretrained_model_path='H:\checkpoints\model_CBAMUnet_064_0.9335.pth.tar'
+
+    pretrained_model_path='.\checkpoints\model_CBAMUnet_064_0.9335.pth.tar'
     save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
     
 

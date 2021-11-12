@@ -5,10 +5,10 @@ import numpy as np
 import  torch.nn as nn
 import  torchvision.models as models
 from PIL import Image
-
+import  time
 from config.config import DefaultConfig
 
-
+import logging
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
@@ -228,7 +228,7 @@ num_epochs=100
 
 import  csv
 def csv1():
-    headers = ['net','train_path','recall', 'specificity', 'precision', 'F1', 'F2',
+    headers = ['dataset','net','train_path','recall', 'specificity', 'precision', 'F1', 'F2',
                            'ACC_overall', 'IoU_poly', 'IoU_bg', 'IoU_mean', 'Dice']
     with open('./data.csv', 'a', newline='')as f:
       f_csv = csv.writer(f)
@@ -246,4 +246,36 @@ def charnge():
 
     save_path = os.path.join(args.data, args.dataset, "output")
     print(save_path)
-csv1()
+
+def testtqdm():
+    list =[]
+    for i in range(1,100):
+         list.append(i)
+    pbar = tqdm.tqdm(enumerate(list, start=1), desc='Iter', total=100,
+                     leave=False, bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:40}{r_bar}')
+    for i  in  pbar:
+     time.sleep(0.1)
+import  numpy
+def test2():
+    pred =torch.randn(3,3)
+    print(pred)
+  # pred =torch.random.uniform(-1,1,size=[2,2])
+    print((pred > 0).float().mean())
+    print(torch.where(pred > 0))
+    pred[torch.where(pred > 0)] /= (pred > 0).float().mean()
+    pred[torch.where(pred < 0)] /= (pred < 0).float().mean()
+    print(pred)
+    pred = torch.sigmoid(pred).cpu().numpy() * 255
+    print(pred)
+def test3():
+    res =  torch.rand(5,5)
+    res= (res>0.5).float()
+    res = res.sigmoid().data.cpu().numpy().squeeze()
+    res = (res - res.min()) / (res.max() - res.min() + 1e-8)
+    print(res)
+
+def test4():
+    logging.info("Dasd")
+    logging.info("Dasd")
+    logging.info("Dasd")
+test4()
