@@ -31,6 +31,7 @@ import utils.loss as loss
 from dataset.Dataset import Dataset
 from model.BaseNet import CPFNet
 from model.resunet import  Resunet
+from  model.mynet import MyNet
 
 
 def valid(model, dataset,args):
@@ -52,8 +53,8 @@ def valid(model, dataset,args):
                 img = data.cuda()
                 gt = gt.cuda()
 
-            output = model(img)
-            output = F.upsample(output, size=gt.shape[2:], mode='bilinear', align_corners=False)
+            out1,ou2 = model(img)
+            output = F.upsample(out1, size=gt.shape[2:], mode='bilinear', align_corners=False)
             output = torch.sigmoid(output)
             output = (output > 0.5).float()
             eps = 0.0001
@@ -72,13 +73,14 @@ def train(args, model, optimizer,dataloader_train,total):
     Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
                  'test': []}
     best_dice  =  0
+    BCE = torch.nn.BCEWithLogitsLoss()
     for epoch in range(1, args.num_epochs+1):
         u.adjust_lr(optimizer, args.lr, epoch, args.decay_rate, args.decay_epoch)
         size_rates = [0.75, 1, 1.25]  # replace your desired scale, try larger scale for better accuracy in small object
         model.train()
         loss_record = []
         loss_record1, loss_record2, loss_record3, loss_record4, loss_record5 = u.AvgMeter(), u.AvgMeter(), u.AvgMeter(), u.AvgMeter(), u.AvgMeter()
-        for i, (data, label) in enumerate(dataloader_train, start=1):
+        for i, (data, label,edgs) in enumerate(dataloader_train, start=1):
             for rate in size_rates:
 
 
@@ -86,37 +88,41 @@ def train(args, model, optimizer,dataloader_train,total):
                 if torch.cuda.is_available() and args.use_gpu:
                     data = data.cuda()
                     label = label.cuda()
+                    edgs = edgs.cuda()
+
                  # rescale
 
                 trainsize = int(round(args.trainsize * rate / 32) * 32)
 
                 if   rate != 1:
                   data  = F.upsample(data, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
-                  label = F.upsample(label, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+                  label  = F.upsample(label, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+                  edgs = F.upsample(edgs, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
 
                 """
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                main_out = model(data)
+                out1,out2 = model(data)
 
                 """
                 计算损失函数
                 """
 
-                loss =  u.structure_loss(main_out,label)
+                loss =  u.structure_loss(out1,label) + BCE(edgs,out2)
                 loss.backward()
+
                 u.clip_gradient(optimizer, args.clip)
                 optimizer.step()
 
                 loss_record.append(loss.item())
 
                 # ---- train visualization ----
-                if i%20==0 or i==total :
-                     loss_train_mean = np.mean(loss_record)
-                     print('{} Epoch [{:03d}/{:03d}], Step [{:04d}/{:04d}], '
-                           '[loss for train : {:.4f}]'.
-                           format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train),loss_train_mean))
+            if i % 20 == 0 or i == total:
+                loss_train_mean = np.mean(loss_record)
+                print('{} Epoch [{:03d}/{:03d}], Step [{:04d}/{:04d}], '
+                          '[loss for train : {:.4f}]'.
+                          format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train), loss_train_mean))
 
         if (epoch + 1) % 1 == 0:
             for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
@@ -148,7 +154,7 @@ def main():
         shuffle=True,
         num_workers=args.num_workers,
         pin_memory=True,
-        drop_last=True 
+        drop_last=True
     )
 
 
@@ -159,7 +165,7 @@ def main():
     load model
     """
 
-    model_all={'Resunet':Resunet(out_planes=1)}
+    model_all={'Resunet':Resunet(out_planes=1),'MyNet':MyNet()}
 
     model=model_all[args.net_work]
     print(args.net_work)

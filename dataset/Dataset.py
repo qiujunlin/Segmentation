@@ -11,14 +11,18 @@ import random
 
 class Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset_path,scale=(352,352),augmentations =  'True'):
+    def __init__(self, dataset_path,scale=(352,352),augmentations = True,hasEdg =True):
         super().__init__()
         self.augmentations = augmentations
         self.img_path=dataset_path+'/images/'
         self.mask_path=dataset_path+'/masks/'
+        self.edge_path = dataset_path +'/edgs/'
+
+        self.edge_flage = hasEdg
         self.images = [self.img_path + f for f in os.listdir(self.img_path) if f.endswith('.jpg') or f.endswith('.png')]
         self.gts = [self.mask_path + f for f in os.listdir(self.mask_path) if f.endswith('.png') or f.endswith(".jpg")]
-        if self.augmentations == 'True':
+        self.edges = [self.edge_path + f for f in os.listdir(self.edge_path) if f.endswith('.png') or f.endswith(".jpg")]
+        if self.augmentations :
             print('Using RandomRotation, RandomFlip')
             self.img_transform = transforms.Compose([
                 transforms.RandomRotation(90, resample=False, expand=False, center=None, fill=None),
@@ -63,7 +67,17 @@ class Dataset(torch.utils.data.Dataset):
         torch.manual_seed(seed)  # needed for torchvision 0.7
         if self.gt_transform is not None:
             gt = self.gt_transform(gt)
-        return image, gt
+
+
+        if self.edge_flage:
+            edge = self.binary_loader(self.edges[index])
+            random.seed(seed)  # apply this seed to img tranfsorms
+            torch.manual_seed(seed)  # needed for torchvision 0.7
+            edge = self.gt_transform(edge)
+            return image, gt, edge
+        else:
+            return image, gt
+       # return image, gt
 
 
     def rgb_loader(self, path):
@@ -127,7 +141,7 @@ class TestDataset(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-   data = TestDataset(r'E:\dataset\data_med4', (256, 448),mode='val')
+   data = Dataset('E:\dataset\dataset\TrainDataset')
    print(data.__getitem__(0))
 
 

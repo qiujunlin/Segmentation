@@ -144,9 +144,14 @@ class MyNet(nn.Module):
         self.rfb3_1 = RFB_modified(1024, channel)
         self.rfb4_1 = RFB_modified(2048, channel)
 
-        self.Combine = COM(32)
+        self.Combine = COM(channel)
         self.out_conv = nn.Conv2d(channel, 1, 1)
 
+
+        self.Translayer2_0 = BasicConv2d(64, channel, 1)
+        self.Translayer2_1 = BasicConv2d(512, channel, 1)
+        self.Translayer3_1 = BasicConv2d(1024, channel, 1)
+        self.Translayer4_1 = BasicConv2d(2048, channel, 1)
 
         # ---- edge branch ----
         self.edge_conv1 = BasicConv2d(256, channel, kernel_size=1)
@@ -167,9 +172,14 @@ class MyNet(nn.Module):
         x2 = self.resnet.layer2(x1)     # bs, 512, 44, 44
         x3 = self.resnet.layer3(x2)     # bs, 1024, 22, 22
         x4 = self.resnet.layer4(x3)     # bs, 2048, 11, 11
-        x2_rfb = self.rfb2_1(x2)        # channel -> 32
-        x3_rfb = self.rfb3_1(x3)        # channel -> 32
-        x4_rfb = self.rfb4_1(x4)        # channel -> 32
+        #
+        # x2_t = self.Translayer2_1(x2)
+        # x3_t = self.Translayer3_1(x3)
+        # x4_t = self.Translayer4_1(x4)
+
+        x2_t = self.rfb2_1(x2)        # channel -> 32
+        x3_t = self.rfb3_1(x3)        # channel -> 32
+        x4_t = self.rfb4_1(x4)        # channel -> 32
 
         # ---- edge guidance ----
         x = self.edge_conv1(x1)
@@ -177,8 +187,8 @@ class MyNet(nn.Module):
         edge_guidance = self.edge_conv3(x)  # torch.Size([1, 64, 88, 88])
 
 
-        last = self.Combine(x4_rfb,x3_rfb,x2_rfb,edge_guidance)
-
+        last = self.Combine(x4_t,x3_t,x2_t,edge_guidance)
+        last =  F.interpolate(last, scale_factor=8, mode='bilinear')
         last_map =  self.out_conv(last)
 
 
@@ -197,8 +207,9 @@ if __name__ == '__main__':
     net  =MyNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-   # out =net(input_tensor)
-    from torchsummary import summary
-    summary(net,input_size=(3,352,352))
-   # print(out)
+    out1,out2 =net(input_tensor)
+    # from torchsummary import summary
+    # summary(net,input_size=(3,352,352))
+    print(out1.size())
+    print(out2.size())
 

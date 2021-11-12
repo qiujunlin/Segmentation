@@ -8,8 +8,8 @@ class DefaultConfig(object):
     validation_step=1
     crop_height=16
     crop_width=16
-    trainsize = 32
-    batch_size=2
+    trainsize = 352
+    batch_size= 4
 
 
     #dataset
@@ -28,7 +28,7 @@ class DefaultConfig(object):
     optimizer = 'Adam'
     lr=1e-4
     lr_mode= 'poly'
-    net_work= 'Resunet'
+    net_work= 'MyNet'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
     decay_rate = 0.1

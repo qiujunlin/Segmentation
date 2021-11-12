@@ -7,7 +7,10 @@ import  torchvision.models as models
 from PIL import Image
 import  time
 from config.config import DefaultConfig
-
+from scipy import misc
+import random
+import cv2
+import numpy as np
 import logging
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
@@ -278,4 +281,26 @@ def test4():
     logging.info("Dasd")
     logging.info("Dasd")
     logging.info("Dasd")
-test4()
+
+def binary2edge(mask_path):
+    """
+    func1: threshold(src, thresh, maxval, type[, dst]) -> retval, dst
+            https://www.cnblogs.com/FHC1994/p/9125570.html
+    func2: Canny(image, threshold1, threshold2[, edges[, apertureSize[, L2gradient]]]) -> edges
+
+    :param mask_path:
+    :return:
+    """
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    ret, mask_binary = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)  # if <0, pixel=0 else >0, pixel=255
+    mask_edge = cv2.Canny(mask_binary, 10, 150)
+
+    return mask_edge
+def  test5():
+    for imagename in os.listdir("E:\dataset\dataset\TrainSmall\masks"):
+        edge_map = binary2edge(os.path.join("E:\dataset\dataset\TrainSmall\masks",imagename))
+        cv2.imwrite(os.path.join("E:\dataset\dataset\TrainSmall\edgs", imagename), edge_map)
+
+
+
+test5()
