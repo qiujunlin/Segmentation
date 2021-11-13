@@ -11,6 +11,7 @@ from scipy import misc
 import random
 import cv2
 import numpy as np
+from scipy.ndimage.morphology import distance_transform_edt
 import logging
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
@@ -179,55 +180,7 @@ def nolcal():
     net = Self_Attn(in_dim=8,activation=None)
     a =  torch.rand((1,8,112,112))
     print(net(a)[0].shape)
-def ran1():
-    for i in range(1,6):
-        print(i)
-"""
-num_epochs=100
-    epoch_start_i=0
-    checkpoint_step=5
-    validation_step=1
-    crop_height=112
-    crop_width=112
-    batch_size=1
-    #dataset
-    data='E:/dataset/1050ti'
-    dataset="data_med4"
-    log_dirs='E:\workspace\python\CPFNet_Project\Log'
-    k_fold = 4
-    test_fold = 4
-    num_workers = 1
 
-    #optim
-    lr=0.01#0.01  如果使用了scheduler 那么就设置为 0.001 如果使用的是不断下降 就使用 0.01
-    lr_mode= 'poly'
-    net_work= 'UNet'
-    momentum = 0.9#
-    weight_decay =1e-4#1e-4#
-
-    # scheduler
-
-    scheduler = ""  # 学习率优化器
-    min_lr = 1e-5
-    factor=0.1
-    patience=2
-    milestones='1,2'
-    gamma=2/3
-    early_stopping=-1
-
-    # train and test way
-    mode='train'
-    num_classes=2
-
-    # special model unet++
-    deep_supervision = True
-
-    
-    cuda='0'
-    use_gpu=True
-    pretrained_model_path='E:\workspace\python\CPFNet_Project\checkpoints\model_BaseNet_053_0.8837.pth.tar'
-    save_model_path='E:\workspace\python\CPFNet_Project\checkpoints'
-"""
 
 import  csv
 def csv1():
@@ -299,8 +252,46 @@ def binary2edge(mask_path):
 def  test5():
     for imagename in os.listdir("E:\dataset\dataset\TrainSmall\masks"):
         edge_map = binary2edge(os.path.join("E:\dataset\dataset\TrainSmall\masks",imagename))
-        cv2.imwrite(os.path.join("E:\dataset\dataset\TrainSmall\edgs", imagename), edge_map)
+        cv2.imwrite(os.path.join("E:\dataset\dataset\TrainSmall\edgs2", imagename), edge_map)
 
 
+def test6():
+    for imagename in os.listdir("E:\dataset\dataset\TrainSmall\masks"):
+
+        mask = cv2.imread(os.path.join("E:\dataset\dataset\TrainSmall\masks",imagename), cv2.IMREAD_GRAYSCALE)
+        edge_map =  mask_to_onehot(mask,2)
+        edge_map = onehot_to_binary_edges(edge_map,2,2)
+        cv2.imwrite(os.path.join("E:\dataset\dataset\TrainSmall\edgs", imagename), edge_map*255)
+
+def mask_to_onehot(mask, num_classes):
+    """
+    Converts a segmentation mask (H,W) to (K,H,W) where the last dim is a one
+    hot encoding vector
+
+    """
+    _mask = [mask == i for i in range(num_classes)]
+    return np.array(_mask).astype(np.uint8)
+def onehot_to_binary_edges(mask, radius, num_classes):
+    """
+    Converts a segmentation mask (K,H,W) to a binary edgemap (H,W)
+
+    """
+    if radius < 0:
+        return mask
+
+    # We need to pad the borders for boundary conditions
+    mask_pad = np.pad(mask, ((0, 0), (1, 1), (1, 1)), mode='constant', constant_values=0)
+
+    edgemap = np.zeros(mask.shape[1:])
+
+    for i in range(num_classes):
+        dist = distance_transform_edt(mask_pad[i, :])+distance_transform_edt(1.0-mask_pad[i, :])
+        dist = dist[1:-1, 1:-1]
+        dist[dist > radius] = 0
+        edgemap += dist
+    edgemap = np.expand_dims(edgemap, axis=0)
+    edgemap = (edgemap > 0).astype(np.uint8)
+    edgemap =  np.squeeze(edgemap)
+    return edgemap
 
 test5()

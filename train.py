@@ -138,7 +138,7 @@ def train(args, model, optimizer,dataloader_train,total):
                 filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
                 checkpointpath = os.path.join(checkpoint_dir, filename)
                 torch.save(model.state_dict(), checkpointpath)
-                print('#############Savingbest##########################################BestAvgDice:{}'.format(best_dice))
+                print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
 
 
 def main():
