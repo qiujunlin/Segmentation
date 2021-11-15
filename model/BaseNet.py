@@ -73,7 +73,7 @@ class CPFNet(nn.Module):
         m3=self.mce_3(c3,c4,c5)
         m4=self.mce_4(c4,c5)
         # d_bottom=self.bottom(c5)
-       # c5=self.sap(c5)
+        # c5=self.sap(c5)
 
         # d5=d_bottom+c5           #512
 

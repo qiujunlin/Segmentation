@@ -13,13 +13,13 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.CBAMUnet import  CBAMUnet
+from model.mynet import  MyNet
 from dataset.Dataset import  TestDataset
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='H:\checkpoints\model_CBAMUnet_064_0.9335.pth.tar')
+parser.add_argument('--pth_path', type=str, default='H:\checkpoints\model_MyNet_033.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
@@ -28,15 +28,17 @@ if __name__ == '__main__':
     data_path = 'E:\dataset\data\TestDataset\{}\\'.format(_data_name)
 
     save_path = 'E:\dataset\data\TestDataset\{}\output/'.format(_data_name)
+    edge_save_path = 'E:\dataset\data\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
-    model = CBAMUnet()
+    model = MyNet()
     model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load(opt.pth_path)['state_dict'])
+    model.load_state_dict(torch.load(opt.pth_path))
  #   model.cuda()
     #model.cpu()
     model.eval()
 
     os.makedirs(save_path, exist_ok=True)
+    os.makedirs(edge_save_path, exist_ok=True)
     test_loader1 = TestDataset(data_path, opt.testsize)
     test_loader = DataLoader(
         test_loader1,
@@ -51,9 +53,15 @@ if __name__ == '__main__':
         gt = np.asarray(gt, np.float32)
         gt /= (gt.max() + 1e-8)
 #        image = image.cuda()
-        res = model(img)
+        res ,edge= model(img)
         res = F.upsample(res, size=gt.shape[2:], mode='bilinear', align_corners=False)
         res = res.sigmoid().data.cpu().numpy().squeeze()
         res = (res - res.min()) / (res.max() - res.min() + 1e-8)
         path =save_path+  "".join(name)
         imageio.imwrite(path, res)
+
+        edge = F.upsample(edge, size=gt.shape[2:], mode='bilinear', align_corners=False)
+        edge = edge.sigmoid().data.cpu().numpy().squeeze()
+        edge = (edge - edge.min()) / (edge.max() - edge.min() + 1e-8)
+        path = edge_save_path + "".join(name)
+        imageio.imwrite(path, edge)

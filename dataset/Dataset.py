@@ -119,7 +119,7 @@ class TestDataset(torch.utils.data.Dataset):
         gt = self.gt_transform(gt)
         name = self.images[index].split('/')[-1]
         if name.endswith('.png'):
-            name = name.split('.png')[0] + '.jpg'
+            name = name.split('.png')[0] + '.png'
        # print(gt.shape[1:])
         return image,gt,name
 

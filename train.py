@@ -31,7 +31,7 @@ import utils.loss as loss
 from dataset.Dataset import Dataset
 from model.BaseNet import CPFNet
 from model.resunet import  Resunet
-from  model.mynet import MyNet
+from  model.mynet2 import MyNet
 
 
 def valid(model, dataset,args):
@@ -54,7 +54,7 @@ def valid(model, dataset,args):
                 gt = gt.cuda()
 
             out1,ou2 = model(img)
-            output = F.upsample(out1, size=gt.shape[2:], mode='bilinear', align_corners=False)
+            output = F.upsample(out1+ou2, size=gt.shape[2:], mode='bilinear', align_corners=False)
             output = torch.sigmoid(output)
             output = (output > 0.5).float()
             eps = 0.0001
@@ -109,7 +109,7 @@ def train(args, model, optimizer,dataloader_train,total):
                 ¼ÆËãËðÊ§º¯Êý
                 """
 
-                loss =  u.structure_loss(out1,label) + BCE(edgs,out2)
+                loss =  u.structure_loss(out1,label) + u.structure_loss(out2,label)
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)
@@ -125,20 +125,21 @@ def train(args, model, optimizer,dataloader_train,total):
                           format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train), loss_train_mean))
 
         if (epoch + 1) % 1 == 0:
-            for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
+            for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB']:
+          # for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
                 dataset_dice = valid(model, dataset,args)
                 print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
                 Dicedict[dataset].append(dataset_dice)
-            meandice = valid(model, 'test',args )
-            print("dataset:{},Dice:{:.4f}".format("test", meandice))
-            Dicedict['test'].append(meandice)
-            if meandice > best_dice:
-                best_dice = meandice
-                checkpoint_dir = "./checkpoint"
-                filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
-                checkpointpath = os.path.join(checkpoint_dir, filename)
-                torch.save(model.state_dict(), checkpointpath)
-                print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
+            # meandice = valid(model, 'test',args )
+            # print("dataset:{},Dice:{:.4f}".format("test", meandice))
+            # Dicedict['test'].append(meandice)
+            # if meandice > best_dice:
+            #     best_dice = meandice
+            #     checkpoint_dir = "./checkpoint"
+            #     filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
+            #     checkpointpath = os.path.join(checkpoint_dir, filename)
+            #     torch.save(model.state_dict(), checkpointpath)
+            #     print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
 
 
 def main():
@@ -165,7 +166,7 @@ def main():
     load model
     """
 
-    model_all={'Resunet':Resunet(out_planes=1),'MyNet':MyNet()}
+    model_all={'MyNet':MyNet()}
 
     model=model_all[args.net_work]
     print(args.net_work)
@@ -179,8 +180,8 @@ def main():
     """
      optimizer
     """
-    if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters(), args.lr)
+    if args.optimizer == 'AdamW':
+        optimizer = torch.optim.AdamW(model.parameters(), args.lr,weight_decay=1e-4)
     else:
         optimizer =  torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 

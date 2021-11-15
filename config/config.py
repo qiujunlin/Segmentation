@@ -9,7 +9,7 @@ class DefaultConfig(object):
     crop_height=16
     crop_width=16
     trainsize = 352
-    batch_size= 4
+    batch_size= 2
 
 
     #dataset
@@ -25,7 +25,7 @@ class DefaultConfig(object):
 
 
     #optim
-    optimizer = 'Adam'
+    optimizer = 'AdamW'
     lr=1e-4
     lr_mode= 'poly'
     net_work= 'MyNet'
