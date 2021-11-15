@@ -2,7 +2,7 @@
 
 class DefaultConfig(object):
 
-    num_epochs=30
+    num_epochs=100
     epoch_start_i=0
     checkpoint_step=1
     validation_step=1

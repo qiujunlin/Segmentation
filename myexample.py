@@ -293,5 +293,9 @@ def onehot_to_binary_edges(mask, radius, num_classes):
     edgemap = (edgemap > 0).astype(np.uint8)
     edgemap =  np.squeeze(edgemap)
     return edgemap
-
-test5()
+def test6():
+    decay_rate = 0.1
+    decay_epoch =30
+    for epoch in range(1,100):
+      print(decay_rate ** (epoch // decay_epoch))
+test6()
