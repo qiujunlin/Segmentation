@@ -27,9 +27,9 @@ class Up(nn.Module):
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
-class UNet(nn.Module):
+class RefineUNet(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=True):
-        super(UNet, self).__init__()
+        super(RefineUNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear

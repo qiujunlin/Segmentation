@@ -25,7 +25,7 @@ class Dataset(torch.utils.data.Dataset):
         if self.augmentations :
             print('Using RandomRotation, RandomFlip')
             self.img_transform = transforms.Compose([
-                transforms.RandomRotation(90, resample=False, expand=False, center=None, fill=None),
+                transforms.RandomRotation(90, resample=False, expand=False, center=None),
                 transforms.RandomVerticalFlip(p=0.5),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.Resize(scale,Image.NEAREST),
@@ -33,7 +33,7 @@ class Dataset(torch.utils.data.Dataset):
                 transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])])
             self.gt_transform = transforms.Compose([
-                transforms.RandomRotation(90, resample=False, expand=False, center=None, fill=None),
+                transforms.RandomRotation(90, resample=False, expand=False, center=None),
                 transforms.RandomVerticalFlip(p=0.5),
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.Resize(scale,Image.BILINEAR),

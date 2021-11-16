@@ -20,6 +20,7 @@ import torch.backends.cudnn as cudnn
 from torch.optim import lr_scheduler
 from dataset.Dataset import  TestDataset
 import utils.loss as loss
+
 """
 评价函数
 """
@@ -32,6 +33,7 @@ from dataset.Dataset import Dataset
 from model.BaseNet import CPFNet
 from model.resunet import  Resunet
 from  model.mynet2 import MyNet
+from  model.mynet3 import MyNet
 
 
 def valid(model, dataset,args):
@@ -53,8 +55,8 @@ def valid(model, dataset,args):
                 img = data.cuda()
                 gt = gt.cuda()
 
-            out1,ou2 = model(img)
-            output = F.upsample(out1+ou2, size=gt.shape[2:], mode='bilinear', align_corners=False)
+            out1, out2, out3, out4 = model(img)
+            output = F.upsample(out4, size=gt.shape[2:], mode='bilinear', align_corners=False)
             output = torch.sigmoid(output)
             output = (output > 0.5).float()
             eps = 0.0001
@@ -75,6 +77,25 @@ def train(args, model, optimizer,dataloader_train,total):
     best_dice  =  0
     BCE = torch.nn.BCEWithLogitsLoss()
     for epoch in range(1, args.num_epochs+1):
+        print("                            _ooOoo_                     ")
+        print("                           o8888888o                    ")
+        print("                           88  .  88                    ")
+        print("                           (| -_- |)                    ")
+        print("                            O\\ = /O                    ")
+        print("                        ____/`---'\\____                ")
+        print("                      .   ' \\| |// `.                  ")
+        print("                       / \\||| : |||// \\               ")
+        print("                     / _||||| -:- |||||- \\             ")
+        print("                       | | \\\\\\ - /// | |             ")
+        print("                     | \\_| ''\\---/'' | |              ")
+        print("                      \\ .-\\__ `-` ___/-. /            ")
+        print("                   ___`. .' /--.--\\ `. . __            ")
+        print("                ."" '< `.___\\_<|>_/___.' >'"".         ")
+        print("               | | : `- \\`.;`\\ _ /`;.`/ - ` : | |     ")
+        print("                 \\ \\ `-. \\_ __\\ /__ _/ .-` / /      ")
+        print("         ======`-.____`-.___\\_____/___.-`____.-'====== ")
+        print("                            `=---='  ")
+        print("                                                        ")
         u.adjust_lr(optimizer, args.lr, epoch, args.decay_rate, args.decay_epoch)
         size_rates = [0.75, 1, 1.25]  # replace your desired scale, try larger scale for better accuracy in small object
         model.train()
@@ -103,13 +124,14 @@ def train(args, model, optimizer,dataloader_train,total):
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                out1,out2 = model(data)
+                out1,out2 ,out3,out4= model(data)
 
                 """
                 计算损失函数
                 """
 
-                loss =  u.structure_loss(out1,label) + u.structure_loss(out2,label)
+                loss =  u.structure_loss(out1,label) + u.structure_loss(out2,label)+\
+                        u.structure_loss(out3,label)+u.structure_loss(out4,label)
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)
@@ -130,16 +152,18 @@ def train(args, model, optimizer,dataloader_train,total):
                 dataset_dice = valid(model, dataset,args)
                 print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
                 Dicedict[dataset].append(dataset_dice)
-            # meandice = valid(model, 'test',args )
-            # print("dataset:{},Dice:{:.4f}".format("test", meandice))
-            # Dicedict['test'].append(meandice)
-            # if meandice > best_dice:
-            #     best_dice = meandice
-            #     checkpoint_dir = "./checkpoint"
-            #     filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
-            #     checkpointpath = os.path.join(checkpoint_dir, filename)
-            #     torch.save(model.state_dict(), checkpointpath)
-            #     print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
+            meandice = valid(model, 'test',args )
+            print("dataset:{},Dice:{:.4f}".format("test", meandice))
+            Dicedict['test'].append(meandice)
+            if meandice > best_dice:
+                best_dice = meandice
+                checkpoint_dir = "./checkpoint"
+                filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
+                checkpointpath = os.path.join(checkpoint_dir, filename)
+                torch.save(model.state_dict(), checkpointpath)
+
+                print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
+
 
 
 def main():
@@ -194,6 +218,7 @@ if __name__ == '__main__':
     # seed=1234
     # torch.manual_seed(seed)
     # torch.cuda.manual_seed_all(seed)
+
 
     main()
 

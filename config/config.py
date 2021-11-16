@@ -2,7 +2,7 @@
 
 class DefaultConfig(object):
 
-    num_epochs=100
+    num_epochs=150
     epoch_start_i=0
     checkpoint_step=1
     validation_step=1
@@ -25,14 +25,14 @@ class DefaultConfig(object):
 
 
     #optim
-    optimizer = 'AdamW'
-    lr=1e-4
+    optimizer = 'SGD'
+    lr=1e-3
     lr_mode= 'poly'
     net_work= 'MyNet'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
     decay_rate = 0.1
-    decay_epoch =50
+    decay_epoch =30
     cuda = '0'
     use_gpu = True
 
