@@ -45,19 +45,30 @@ class RefineUNet(nn.Module):
         self.up2 = Up(128, 64)
         self.up3 = Up(128, 64)
         self.outconv = nn.Conv2d(64, 1, kernel_size=1)
+        self.outconv = nn.Conv2d(64, 1, kernel_size=1)
+        self.outconv = nn.Conv2d(64, 1, kernel_size=1)
+        self.upsample1 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.upsample2 = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
+        self.upsample3 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
 
     def forward(self, x):
         x1 = self.inconv(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        logits = self.outconv(x)
-        return logits
+        x_up2 = self.up1(x4, x3)
+        x_up3 = self.up2(x_up2, x2)
+        x_up4 = self.up3(x_up3, x1)
+
+        logits1 = self.outconv(x_up2)
+        logits2 = self.outconv(x_up3)
+        logits3 = self.outconv(x_up4)
+        return logits3,self.upsample1(logits2),self.upsample2(logits1)
 if __name__ == '__main__':
-    net = UNet(1, 1)
-    a = torch.rand(1, 1, 352, 352)
-    print(net(a).size())
+    net = RefineUNet(1, 1)
+    a= torch.rand(1, 1, 352, 352)
+    o1,o2,o3 = net(a)
+    print(o1.size())
+    print(o2.size())
+    print(o3.size())
 

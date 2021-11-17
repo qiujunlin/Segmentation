@@ -13,13 +13,13 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet2 import  MyNet
+from model.mynet3 import  MyNet
 from dataset.Dataset import  TestDataset
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='H:\checkpoints\model_MyNet_039.pth.tar')
+parser.add_argument('--pth_path', type=str, default='F:/checkpoint/model_MyNet_126.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
@@ -53,8 +53,8 @@ if __name__ == '__main__':
         gt = np.asarray(gt, np.float32)
         gt /= (gt.max() + 1e-8)
 #        image = image.cuda()
-        res1 ,res2= model(img)
-        res = F.upsample(res1+res2, size=gt.shape[2:], mode='bilinear', align_corners=False)
+        res1 ,res2,res3,res4= model(img)
+        res = F.upsample(res3, size=gt.shape[2:], mode='bilinear', align_corners=False)
         res = res.sigmoid().data.cpu().numpy().squeeze()
         res = (res - res.min()) / (res.max() - res.min() + 1e-8)
         path =save_path+  "".join(name)

@@ -1,93 +1,131 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
+import numpy as np
+from torch import einsum
+from torch import Tensor
+from scipy.ndimage import distance_transform_edt as distance
+from scipy.spatial.distance import directed_hausdorff
+
+from typing import Any, Callable, Iterable, List, Set, Tuple, TypeVar, Union
 
 
-def structure_loss(pred, mask):
-    weit = 1 + 5*torch.abs(F.avg_pool2d(mask, kernel_size=31, stride=1, padding=15) - mask)
-    wbce = F.binary_cross_entropy_with_logits(pred, mask, reduce='none')
-    wbce = (weit*wbce).sum(dim=(2, 3)) / weit.sum(dim=(2, 3))
+# switch between representations
+def probs2class(probs: Tensor) -> Tensor:
+    b, _, w, h = probs.shape  # type: Tuple[int, int, int, int]
+    assert simplex(probs)
 
-    pred = torch.sigmoid(pred)
-    inter = ((pred * mask)*weit).sum(dim=(2, 3))
-    union = ((pred + mask)*weit).sum(dim=(2, 3))
-    wiou = 1 - (inter + 1)/(union - inter+1)
-    return (wbce + wiou).mean()
+    res = probs.argmax(dim=1)
+    assert res.shape == (b, w, h)
+
+    return res
 
 
-class DiceLoss(nn.Module):
-    def __init__(self,smooth=0.01):
-        super(DiceLoss, self).__init__()
-        self.smooth = smooth
-    def forward(self,input, target):
-        # input = torch.sigmoid(input)
-        Dice = Variable(torch.Tensor([0]).float()).cuda()
-        intersect=(input*target).sum()
-        union = torch.sum(input) + torch.sum(target)
-        Dice=(2*intersect+self.smooth)/(union+self.smooth)
-        dice_loss=1-Dice
-        return dice_loss
+def probs2one_hot(probs: Tensor) -> Tensor:
+    _, C, _, _ = probs.shape
+    assert simplex(probs)
 
-class Multi_DiceLoss(nn.Module):
+    res = class2one_hot(probs2class(probs), C)
+    assert res.shape == probs.shape
+    assert one_hot(res)
 
-    def __init__(self, class_num=5,smooth=0.001):
-        super(Multi_DiceLoss, self).__init__()
-        self.smooth = smooth
-        self.class_num = class_num
-    def forward(self,input, target):
-        input = torch.exp(input)
-        Dice = Variable(torch.Tensor([0]).float()).cuda()
-        for i in range(0,self.class_num):
-            input_i = input[:,i,:,:]
-            target_i = (target == i).float()
-            intersect = (input_i*target_i).sum()
-            union = torch.sum(input_i) + torch.sum(target_i)
-            dice = (2 * intersect + self.smooth) / (union + self.smooth)
-            Dice += dice
-        dice_loss = 1 - Dice/(self.class_num)
-        return dice_loss
+    return res
 
-class EL_DiceLoss(nn.Module):
-    def __init__(self, class_num=2,smooth=1,gamma=0.5):
-        super(EL_DiceLoss, self).__init__()
-        self.smooth = smooth
-        self.class_num = class_num
-        self.gamma = gamma
 
-    def forward(self,input, target):
-        input = torch.exp(input)
-        self.smooth = 0.
-        Dice = Variable(torch.Tensor([0]).float()).cuda()
-        for i in range(1,self.class_num):
-            input_i = input[:,i,:,:]
-            target_i = (target == i).float()
-            intersect = (input_i*target_i).sum()
-            union = torch.sum(input_i) + torch.sum(target_i)
-            if target_i.sum() == 0:
-                dice = Variable(torch.Tensor([1]).float()).cuda()
-            else:
-                dice = (2 * intersect + self.smooth) / (union + self.smooth)
-            Dice += (-torch.log(dice))**self.gamma
-        dice_loss = Dice/(self.class_num - 1)
-        return dice_loss
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.logits = logits
-        self.reduce = reduce
+def class2one_hot(seg: Tensor, C: int) -> Tensor:
+    if len(seg.shape) == 2:  # Only w, h, used by the dataloader
+        seg = seg.unsqueeze(dim=0)
+    assert sset(seg, list(range(C)))
 
-    def forward(self, inputs, targets):
-        if self.logits:
-            BCE_loss = F.nll_loss(inputs, targets, reduce=False)
-        else:
-            BCE_loss = F.nll_loss(inputs, targets, reduce=False)
-        pt = torch.exp(-BCE_loss)
-        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+    b, w, h = seg.shape  # type: Tuple[int, int, int]
 
-        if self.reduce:
-            return torch.mean(F_loss)
-        else:
-            return F_loss
+    res = torch.stack([seg == c for c in range(C)], dim=1).type(torch.int32)
+    assert res.shape == (b, C, w, h)
+    assert one_hot(res)
+
+    return res
+
+
+def one_hot2dist(seg: np.ndarray) -> np.ndarray:
+    assert one_hot(torch.Tensor(seg), axis=0)
+    C: int = len(seg)
+
+    res = np.zeros_like(seg)
+    for c in range(C):
+        posmask = seg[c].astype(np.bool)
+
+        if posmask.any():
+            negmask = ~posmask
+            # print('negmask:', negmask)
+            # print('distance(negmask):', distance(negmask))
+            res[c] = distance(negmask) * negmask - (distance(posmask) - 1) * posmask
+            # print('res[c]', res[c])
+    return res
+
+
+def simplex(t: Tensor, axis=1) -> bool:
+    _sum = t.sum(axis).type(torch.float32)
+    _ones = torch.ones_like(_sum, dtype=torch.float32)
+    return torch.allclose(_sum, _ones)
+
+
+def one_hot(t: Tensor, axis=1) -> bool:
+    return simplex(t, axis) and sset(t, [0, 1])
+
+    # Assert utils
+
+
+def uniq(a: Tensor) -> Set:
+    return set(torch.unique(a.cpu()).numpy())
+
+
+def sset(a: Tensor, sub: Iterable) -> bool:
+    return uniq(a).issubset(sub)
+
+
+class SurfaceLoss():
+    def __init__(self):
+        # Self.idc is used to filter out some classes of the target mask. Use fancy indexing
+        self.idc: List[int] = [1]  # 这里忽略背景类  https://github.com/LIVIAETS/surface-loss/issues/3
+
+    # probs: bcwh, dist_maps: bcwh
+    def __call__(self, probs: Tensor, dist_maps: Tensor, _: Tensor) -> Tensor:
+        assert simplex(probs)
+        assert not one_hot(dist_maps)
+
+        pc = probs[:, self.idc, ...].type(torch.float32)
+        dc = dist_maps[:, self.idc, ...].type(torch.float32)
+
+        # print('pc', pc)
+        # print('dc', dc)
+
+        multipled = einsum("bcwh,bcwh->bcwh", pc, dc)
+
+        loss = multipled.mean()
+
+        return loss
+
+
+if __name__ == "__main__":
+    data = torch.tensor([[[0, 0, 0, 0, 0, 0, 0],
+                          [0, 1, 1, 0, 0, 0, 0],
+                          [0, 1, 1, 0, 0, 0, 0],
+                          [0, 0, 0, 0, 0, 0, 0]]])
+    data2 = class2one_hot(data,2)
+    print(data2)
+    data2 = data2[0].numpy()
+    data3 = one_hot2dist(data2)  # bcwh
+
+    # print(data3)
+    print("data3.shape:", data3.shape)
+
+    logits = torch.tensor([[[0, 0, 0, 0, 0, 0, 0],
+                            [0, 1, 1, 1, 1, 1, 0],
+                            [0, 1, 1, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 0, 0]]])
+
+    logits = class2one_hot(logits, 2)
+
+    Loss = SurfaceLoss()
+    data3 = torch.tensor(data3).unsqueeze(0)
+
+    res = Loss(logits, data3, None)
+    print('loss:', res)

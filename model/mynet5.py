@@ -248,6 +248,13 @@ class MyNet(nn.Module):
         self.conv_upsample5 = BasicConv2d(2 * channel, 2 * channel, 3, padding=1)
 
 
+        # ---- edge branch ----
+        self.edge_conv1 = BasicConv2d(64, channel, kernel_size=1)
+        self.edge_conv2 = BasicConv2d(channel, channel, kernel_size=3, padding=1)
+        self.edge_conv3 = BasicConv2d(channel, channel, kernel_size=3, padding=1)
+        self.edge_conv4 = BasicConv2d(channel, 1, kernel_size=3, padding=1)
+
+
     def forward(self, x):
         # backbone
         pvt = self.backbone(x)
@@ -267,17 +274,21 @@ class MyNet(nn.Module):
 
 
 
-        # CIM
-        x1 = self.ca(x1) * x1  # channel attention
-        low_feature = self.sa(x1) * x1  # spatial attention
-        low_feature =self.outatte(low_feature)
+        # # CIM
+        # x1 = self.ca(x1) * x1  # channel attention
+        # low_feature = self.sa(x1) * x1  # spatial attention
+        # low_feature =self.outatte(low_feature)’
+        # ---- edge guidance ----
+        x = self.edge_conv1(x1)
+        x = self.edge_conv2(x)
+        low_feature = self.edge_conv3(x)  # torch.Size([1, 64, 88, 88])
+
+
 
 
         att_out1 = self.att1(flusion1,self.down01(low_feature))
         att_out2 = self.att2(flusion2,self.down02(low_feature))
         att_out3 = self.att3(flusion3,self.down03(low_feature))
-
-
 
 
 
@@ -292,6 +303,10 @@ class MyNet(nn.Module):
         prediction3 = F.interpolate(out3, scale_factor=8, mode='bilinear')
 
 
+        lateral_edge = self.edge_conv4(low_feature)   # NOTES: Sup-2 (bs, 1, 88, 88) -> (bs, 1, 352, 352)
+        lateral_edge = F.interpolate(lateral_edge,
+                                     scale_factor=4,
+                                     mode='bilinear')
 
 
 
@@ -299,7 +314,7 @@ class MyNet(nn.Module):
         redfine1,redfine2,redfine3 = self.refine((prediction3+prediction2+prediction1))
 
 
-        return prediction1,prediction2,prediction3,redfine1,redfine2,redfine3
+        return prediction1,prediction2,prediction3,redfine1,redfine2,redfine3,lateral_edge
 
 
 
@@ -307,8 +322,14 @@ if __name__ == '__main__':
     model = MyNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    prediction1, prediction2,prediction3,redfine1,redfine2,redfine3 = model(input_tensor)
-    print(prediction1.size(), prediction2.size(),prediction3.size(),redfine1.size(),redfine2.size(),redfine3.size())
+    prediction1, prediction2, prediction3, redfine1, redfine2, redfine3,la = model(input_tensor)
+    print(prediction1.size())
+    print(prediction2.size())
+    print(prediction3.size())
+    print(redfine1.size())
+    print(redfine2.size())
+    print(redfine3.size())
+    print(la.size())
     # net =BCA(64,64,64)
     # a =torch.rand(1,64,44,44)
     # b =torch.rand(1,64,44,44)

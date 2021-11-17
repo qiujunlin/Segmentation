@@ -2,7 +2,9 @@
 import logging
 import shutil
 from torch.utils.data import DataLoader
-
+import warnings
+# action参数可以设置为ignore，一位一次也不喜爱你是，once表示为只显示一次
+warnings.filterwarnings(action='ignore')
 import socket
 from datetime import datetime
 import os
@@ -32,7 +34,7 @@ import utils.loss as loss
 from dataset.Dataset import Dataset
 from model.BaseNet import CPFNet
 from model.resunet import  Resunet
-from  model.mynet2 import MyNet
+# from  model.mynet2 import MyNet
 from  model.mynet3 import MyNet
 
 
@@ -74,7 +76,7 @@ def valid(model, dataset,args):
 def train(args, model, optimizer,dataloader_train,total):
     Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
                  'test': []}
-    best_dice  =  0
+    dataset_dice=0
     BCE = torch.nn.BCEWithLogitsLoss()
     for epoch in range(1, args.num_epochs+1):
         print("                            _ooOoo_                     ")
@@ -82,20 +84,6 @@ def train(args, model, optimizer,dataloader_train,total):
         print("                           88  .  88                    ")
         print("                           (| -_- |)                    ")
         print("                            O\\ = /O                    ")
-        print("                        ____/`---'\\____                ")
-        print("                      .   ' \\| |// `.                  ")
-        print("                       / \\||| : |||// \\               ")
-        print("                     / _||||| -:- |||||- \\             ")
-        print("                       | | \\\\\\ - /// | |             ")
-        print("                     | \\_| ''\\---/'' | |              ")
-        print("                      \\ .-\\__ `-` ___/-. /            ")
-        print("                   ___`. .' /--.--\\ `. . __            ")
-        print("                ."" '< `.___\\_<|>_/___.' >'"".         ")
-        print("               | | : `- \\`.;`\\ _ /`;.`/ - ` : | |     ")
-        print("                 \\ \\ `-. \\_ __\\ /__ _/ .-` / /      ")
-        print("         ======`-.____`-.___\\_____/___.-`____.-'====== ")
-        print("                            `=---='  ")
-        print("                                                        ")
         u.adjust_lr(optimizer, args.lr, epoch, args.decay_rate, args.decay_epoch)
         size_rates = [0.75, 1, 1.25]  # replace your desired scale, try larger scale for better accuracy in small object
         model.train()
@@ -152,17 +140,17 @@ def train(args, model, optimizer,dataloader_train,total):
                 dataset_dice = valid(model, dataset,args)
                 print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
                 Dicedict[dataset].append(dataset_dice)
-            meandice = valid(model, 'test',args )
-            print("dataset:{},Dice:{:.4f}".format("test", meandice))
-            Dicedict['test'].append(meandice)
-            if meandice > best_dice:
-                best_dice = meandice
-                checkpoint_dir = "./checkpoint"
-                filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
-                checkpointpath = os.path.join(checkpoint_dir, filename)
-                torch.save(model.state_dict(), checkpointpath)
-
-                print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
+            # meandice = valid(model, 'test',args )
+            # print("dataset:{},Dice:{:.4f}".format("test", meandice))
+            # Dicedict['test'].append(meandice)
+            # if meandice > best_dice:
+            #     best_dice = meandice
+            #     checkpoint_dir = "./checkpoint"
+            #     filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
+            #     checkpointpath = os.path.join(checkpoint_dir, filename)
+            #     torch.save(model.state_dict(), checkpointpath)
+            #
+            #     print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
 
 
 
