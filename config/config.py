@@ -25,14 +25,14 @@ class DefaultConfig(object):
 
 
     #optim
-    optimizer = 'SGD'
-    lr=1e-3
+    optimizer = 'AdamW'
+    lr=1e-4
     lr_mode= 'poly'
     net_work= 'MyNet'
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
     decay_rate = 0.1
-    decay_epoch =30
+    decay_epoch =100
     cuda = '0'
     use_gpu = True
 

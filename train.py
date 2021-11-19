@@ -35,7 +35,7 @@ from dataset.Dataset import Dataset
 from model.BaseNet import CPFNet
 from model.resunet import  Resunet
 # from  model.mynet2 import MyNet
-from  model.mynet3 import MyNet
+from  model.mynet5 import MyNet
 
 
 def valid(model, dataset,args):
@@ -50,23 +50,29 @@ def valid(model, dataset,args):
         pin_memory=True,
         drop_last=False
     )
-    dice =u.AvgMeter()
+    avg =u.AvgMeter()
     with torch.no_grad():
-        for i, (data,gt,name) in enumerate(valid_dataloader):
-            if torch.cuda.is_available() and args.use_gpu:
-                img = data.cuda()
-                gt = gt.cuda()
-
-            out1, out2, out3, out4 = model(img)
-            output = F.upsample(out4, size=gt.shape[2:], mode='bilinear', align_corners=False)
-            output = torch.sigmoid(output)
-            output = (output > 0.5).float()
-            eps = 0.0001
-            inter = torch.dot(output.view(-1), gt.view(-1))
-            union = torch.sum(output) + torch.sum(gt) + eps
-            t = (2 * inter.float() + eps) / union.float()
-            dice.update(t)
-    return  dice.avg
+        for i, (image,gt,name) in enumerate(valid_dataloader):
+            gt = np.asarray(gt, np.float32)
+            gt /= (gt.max() + 1e-8)
+            image = image.cuda()
+            res = model(image)
+            # eval Dice
+            res = F.upsample(res , size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = res.sigmoid().data.cpu().numpy().squeeze()
+            res = (res - res.min()) / (res.max() - res.min() + 1e-8)
+            input = res
+            target = np.array(gt)
+            N = gt.shape
+            smooth = 1
+            input_flat = np.reshape(input, (-1))
+            target_flat = np.reshape(target, (-1))
+            intersection = (input_flat * target_flat)
+            dice = (2 * intersection.sum() + smooth) / (input.sum() + target.sum() + smooth)
+            dice = '{:.4f}'.format(dice)
+            dice = float(dice)
+            avg.update(dice)
+    return  avg.avg
 
 
 
@@ -112,14 +118,14 @@ def train(args, model, optimizer,dataloader_train,total):
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                out1,out2 ,out3,out4= model(data)
+                pred1 =model(data)
 
                 """
                 计算损失函数
                 """
 
-                loss =  u.structure_loss(out1,label) + u.structure_loss(out2,label)+\
-                        u.structure_loss(out3,label)+u.structure_loss(out4,label)
+                loss =  u.structure_loss(pred1,label) #+ u.structure_loss(out2,label)+\
+                #         u.structure_loss(out3,label)+u.structure_loss(out4,label)+u.structure_loss(pred1,label )
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)
@@ -192,8 +198,8 @@ def main():
     """
      optimizer
     """
-    if args.optimizer == 'AdamW':
-        optimizer = torch.optim.AdamW(model.parameters(), args.lr,weight_decay=1e-4)
+    if args.optimizer == 'Adam':
+        optimizer = torch.optim.Adam(model.parameters(), args.lr,weight_decay=1e-4)
     else:
         optimizer =  torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
