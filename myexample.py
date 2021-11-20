@@ -298,4 +298,64 @@ def test6():
     decay_epoch =30
     for epoch in range(1,100):
       print(decay_rate ** (epoch // decay_epoch))
-test6()
+from dataset.Dataset import Dataset
+from dataset.Dataset import  TestDataset
+import shutil
+from torch.utils.data import DataLoader
+from torch.nn import functional as F
+import utils.utils as u
+import warnings
+warnings.filterwarnings(action='ignore')
+def valid(model, dataset,args):
+
+    model.eval()
+    data_path = os.path.join(args.test_data_path, dataset)
+    dataset = TestDataset(data_path, args.testsize)
+    valid_dataloader = DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        drop_last=False
+    )
+    avg =u.AvgMeter()
+    with torch.no_grad():
+        for i, (image,gt,name) in enumerate(valid_dataloader):
+            gt = np.asarray(gt, np.float32)
+            gt /= (gt.max() + 1e-8)
+            image = image.cuda()
+            pred1,pred2 = model(image)
+            # eval Dice
+            res = F.upsample(pred1+pred2 , size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = res.sigmoid().data.cpu().numpy().squeeze()
+            res = (res - res.min()) / (res.max() - res.min() + 1e-8)
+            input = res
+            target = np.array(gt)
+            N = gt.shape
+            smooth = 1
+            input_flat = np.reshape(input, (-1))
+            target_flat = np.reshape(target, (-1))
+            intersection = (input_flat * target_flat)
+            dice = (2 * intersection.sum() + smooth) / (input.sum() + target.sum() + smooth)
+            dice = '{:.4f}'.format(dice)
+            dice = float(dice)
+            avg.update(dice)
+    return  avg.avg
+
+def test7():
+    path ='F:\百度云下载\model_pth\PolypPVT.pth'
+    from model.pvt import  PolypPVT
+    from config import  config
+    model = PolypPVT()
+  #  model = torch.nn.DataParallel(model)
+    model.load_state_dict(torch.load(path))
+    model.cuda()
+    #model.cpu()
+    model.eval()
+    args =config.DefaultConfig()
+    dice =valid(model, 'test', args)
+    print( dice)
+if __name__ == '__main__':
+
+  test7()

@@ -13,13 +13,13 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet4 import  MyNet
+from model.mynet7 import  MyNet
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='H:/checkpoints/model_MyNet_044_4.pth.tar')
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_064_0.8280.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
@@ -53,15 +53,15 @@ if __name__ == '__main__':
         gt = np.asarray(gt, np.float32)
         gt /= (gt.max() + 1e-8)
         img = img.cuda()
-        prediction1,prediction2,prediction3,redfine1= model(img)
-        res = F.upsample(prediction1+prediction2+prediction3, size=gt.shape[2:], mode='bilinear', align_corners=False)
+        prediction1,prediction2= model(img)
+        res = F.upsample(prediction2, size=gt.shape[2:], mode='bilinear', align_corners=False)
         res = res.sigmoid().data.cpu().numpy().squeeze()
         res = (res - res.min()) / (res.max() - res.min() + 1e-8)
         #path =save_path+  "".join(name)
         cv2.imwrite(save_path+name[0], res*255)
 
-        edge = F.upsample(redfine1, size=gt.shape[2:], mode='bilinear', align_corners=False)
-        edge = edge.sigmoid().data.cpu().numpy().squeeze()
-        edge = (edge - edge.min()) / (edge.max() - edge.min() + 1e-8)
-
-        cv2.imwrite(edge_save_path + name[0], edge * 255)
+        # edge = F.upsample(redfine1, size=gt.shape[2:], mode='bilinear', align_corners=False)
+        # edge = edge.sigmoid().data.cpu().numpy().squeeze()
+        # edge = (edge - edge.min()) / (edge.max() - edge.min() + 1e-8)
+        #
+        # cv2.imwrite(edge_save_path + name[0], edge * 255)

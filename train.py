@@ -35,7 +35,7 @@ from dataset.Dataset import Dataset
 from model.BaseNet import CPFNet
 from model.resunet import  Resunet
 # from  model.mynet2 import MyNet
-from  model.mynet5 import MyNet
+from  model.mynet7 import MyNet
 
 
 def valid(model, dataset,args):
@@ -56,9 +56,9 @@ def valid(model, dataset,args):
             gt = np.asarray(gt, np.float32)
             gt /= (gt.max() + 1e-8)
             image = image.cuda()
-            res = model(image)
+            pred1,pred2 = model(image)
             # eval Dice
-            res = F.upsample(res , size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = F.upsample(pred1+pred2 , size=gt.shape[2:], mode='bilinear', align_corners=False)
             res = res.sigmoid().data.cpu().numpy().squeeze()
             res = (res - res.min()) / (res.max() - res.min() + 1e-8)
             input = res
@@ -82,7 +82,8 @@ def valid(model, dataset,args):
 def train(args, model, optimizer,dataloader_train,total):
     Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
                  'test': []}
-    dataset_dice=0
+    best_dice=0
+    best_epo =0
     BCE = torch.nn.BCEWithLogitsLoss()
     for epoch in range(1, args.num_epochs+1):
         print("                            _ooOoo_                     ")
@@ -118,13 +119,13 @@ def train(args, model, optimizer,dataloader_train,total):
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                pred1 =model(data)
+                pred1,pred2 =model(data)
 
                 """
                 计算损失函数
                 """
 
-                loss =  u.structure_loss(pred1,label) #+ u.structure_loss(out2,label)+\
+                loss =  u.structure_loss(pred1,label) + u.structure_loss(pred2,label)
                 #         u.structure_loss(out3,label)+u.structure_loss(out4,label)+u.structure_loss(pred1,label )
                 loss.backward()
 
@@ -146,18 +147,19 @@ def train(args, model, optimizer,dataloader_train,total):
                 dataset_dice = valid(model, dataset,args)
                 print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
                 Dicedict[dataset].append(dataset_dice)
-            # meandice = valid(model, 'test',args )
-            # print("dataset:{},Dice:{:.4f}".format("test", meandice))
-            # Dicedict['test'].append(meandice)
-            # if meandice > best_dice:
-            #     best_dice = meandice
-            #     checkpoint_dir = "./checkpoint"
-            #     filename = 'model_{}_{:03d}.pth.tar'.format(args.net_work, epoch)
-            #     checkpointpath = os.path.join(checkpoint_dir, filename)
-            #     torch.save(model.state_dict(), checkpointpath)
-            #
-            #     print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
+            meandice = valid(model, 'test',args )
+            print("dataset:{},Dice:{:.4f}".format("test", meandice))
+            Dicedict['test'].append(meandice)
+            if meandice > best_dice:
+                best_dice = meandice
+                best_epo =epoch
+                checkpoint_dir = "./checkpoint"
+                filename = 'model_{}_{:03d}_{:.4f}.pth.tar'.format(args.net_work, epoch,best_dice)
+                checkpointpath = os.path.join(checkpoint_dir, filename)
+                torch.save(model.state_dict(), checkpointpath)
 
+                print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
+        print('bestepo:{:03d} ,bestdice :{:.4f}'.format(best_epo,best_dice))
 
 
 def main():
@@ -166,7 +168,7 @@ def main():
     create dataset and dataloader
     """
 
-    dataset_train = Dataset(args.train_data_path, scale=(args.trainsize, args.trainsize))
+    dataset_train = Dataset(args.train_data_path, scale=(args.trainsize, args.trainsize),augmentations=args.augmentations)
     dataloader_train = DataLoader(
         dataset_train,
         batch_size=args.batch_size,
@@ -198,12 +200,15 @@ def main():
     """
      optimizer
     """
-    if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters(), args.lr,weight_decay=1e-4)
+    if args.optimizer == 'AdamW':
+        print("using AdamW")
+        optimizer = torch.optim.AdamW(model.parameters(), args.lr,weight_decay=1e-4)
     else:
+        print("using SGD")
         optimizer =  torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     total = len(dataloader_train)
+
 
     train(args, model, optimizer,dataloader_train,total)
 

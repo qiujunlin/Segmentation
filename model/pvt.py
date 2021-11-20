@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from lib.pvtv2 import pvt_v2_b2
+from model.backbone.pvtv2 import pvt_v2_b2
 import os
 import torch
 import torch.nn as nn
