@@ -339,6 +339,66 @@ class COM(nn.Module):
         x = torch.cat([self.upsample(self.upsample(x1_4)) ,self.upsample(x2_5), x3_5],dim=1)
         x = self.conv4(x)
         return  x
+class CFM(nn.Module):
+    def __init__(self,channel=32):
+        super(CFM, self).__init__()
+        self.conv1h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn1h   = nn.BatchNorm2d(channel)
+        self.conv2h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn2h   = nn.BatchNorm2d(channel)
+        self.conv3h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn3h   = nn.BatchNorm2d(channel)
+        self.conv4h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn4h   = nn.BatchNorm2d(channel)
+
+        self.conv1v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn1v   = nn.BatchNorm2d(channel)
+        self.conv2v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn2v   = nn.BatchNorm2d(channel)
+        self.conv3v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn3v   = nn.BatchNorm2d(channel)
+        self.conv4v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
+        self.bn4v   = nn.BatchNorm2d(channel)
+
+    def forward(self, left, down):
+        if down.size()[2:] != left.size()[2:]:
+            down = F.interpolate(down, size=left.size()[2:], mode='bilinear')
+        out1h = F.relu(self.bn1h(self.conv1h(left )), inplace=True)
+        out2h = F.relu(self.bn2h(self.conv2h(out1h)), inplace=True)
+        out1v = F.relu(self.bn1v(self.conv1v(down )), inplace=True)
+        out2v = F.relu(self.bn2v(self.conv2v(out1v)), inplace=True)
+        fuse  = out2h*out2v
+        out3h = F.relu(self.bn3h(self.conv3h(fuse )), inplace=True)+out1h
+        out4h = F.relu(self.bn4h(self.conv4h(out3h)), inplace=True)
+        out3v = F.relu(self.bn3v(self.conv3v(fuse )), inplace=True)+out1v
+        out4v = F.relu(self.bn4v(self.conv4v(out3v)), inplace=True)
+        return out4h, out4v
+
+
+
+class Decoder(nn.Module):
+    def __init__(self):
+        super(Decoder, self).__init__()
+        self.cfm45  = CFM()
+        self.cfm34  = CFM()
+        self.cfm23  = CFM()
+
+    def forward(self, out2h, out3h, out4h, out5v, fback=None):
+        if fback is not None:
+            refine5      = F.interpolate(fback, size=out5v.size()[2:], mode='bilinear')
+            refine4      = F.interpolate(fback, size=out4h.size()[2:], mode='bilinear')
+            refine3      = F.interpolate(fback, size=out3h.size()[2:], mode='bilinear')
+            refine2      = F.interpolate(fback, size=out2h.size()[2:], mode='bilinear')
+            out5v        = out5v+refine5
+            out4h, out4v = self.cfm45(out4h+refine4, out5v)
+            out3h, out3v = self.cfm34(out3h+refine3, out4v)
+            out2h, pred  = self.cfm23(out2h+refine2, out3v)
+        else:
+            out4h, out4v = self.cfm45(out4h, out5v)
+            out3h, out3v = self.cfm34(out3h, out4v)
+            out2h, pred  = self.cfm23(out2h, out3v)
+        return out2h, out3h, out4h, out5v, pred
+
 
 class MyNet(nn.Module):
     def __init__(self, channel=64):
@@ -394,17 +454,17 @@ class MyNet(nn.Module):
 
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-        self.decoder3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-        self.decoder2 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-        self.decoder1 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-
+       #  self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
+       #  self.decoder3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+       #  self.decoder2 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+       #  self.decoder1 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+       #
 
         # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder2_4 = DecoderBlock(in_channels=512, out_channels=320)
-        self.decoder2_3 = DecoderBlock(in_channels=320, out_channels=128)
-        self.decoder2_2 = DecoderBlock(in_channels=128, out_channels=64)
-        self.decoder2_1 = DecoderBlock(in_channels=64, out_channels=64)
+        self.decoder2_4 = DecoderBlock(in_channels=channel, out_channels=320)
+        self.decoder2_3 = DecoderBlock(in_channels=channel*2, out_channels=128)
+        self.decoder2_2 = DecoderBlock(in_channels=channel*2, out_channels=64)
+        self.decoder2_1 = DecoderBlock(in_channels=channel*2, out_channels=64)
 
 
 
@@ -429,6 +489,16 @@ class MyNet(nn.Module):
         self.sideout2 = SideoutBlock(32, 1)
         self.sideout1 = SideoutBlock(32, 1)
 
+        self.decoder1 = Decoder()
+        self.decoder2 = Decoder()
+        self.linearp1 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+        self.linearp2 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+
+        self.linearr2 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+        self.linearr3 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+        self.linearr4 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+        self.linearr5 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+
 
 
 
@@ -440,55 +510,31 @@ class MyNet(nn.Module):
         x2 = pvt[1]   # 1 128 44 44
         x3 = pvt[2]   # 1 320 22 22
         x4 = pvt[3]   # 1 512 11 11
-        x1 =self.Translayer1(x1)
-        x2 =self.Translayer2(x2)
-        x3 =self.Translayer3(x3)
-        x4 =self.Translayer4(x4)
-
-       # flusion3 =  self.asm3()
-
-
-
-        d1_4 =self.decoder4(x4) # b 320 22 22
-      # asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
-
-        d1_3 =self.decoder3(torch.cat([d1_4,x3],dim=1))  # b 128 44 4
-      #  asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
-
-        d1_2 =self.decoder2(torch.cat([d1_3,x2],dim=1))  # b 128 88 88
-     #   asm1 = self.asm1(self.upsample(x2),x1, d1_2) # b 128 88 88
-
-        d1_1 =self.decoder1(torch.cat([d1_2,x1],dim=1))  # b 64 176 176
+        out2h =self.Translayer1(x1)
+        out3h =self.Translayer2(x2)
+        out4h =self.Translayer3(x3)
+        out5v =self.Translayer4(x4)
 
 
 
 
 
-        # out1_1 = self.out1_1(asm1+x1)  # b 64 176 176
-        # out1_2 = self.out1_2(asm2+x2)  # b 128 88 88
-        # out1_3 = self.out1_3(asm3+x3)    # b  44 44
-        # out1_4 = self.out1_4(x4)   # b 64 22 22
+        out2h, out3h, out4h, out5v = self.squeeze2(out2h), self.squeeze3(out3h), self.squeeze4(out4h), self.squeeze5(
+            out5v)
+        out2h, out3h, out4h, out5v, pred1 = self.decoder1(out2h, out3h, out4h, out5v)
+        out2h, out3h, out4h, out5v, pred2 = self.decoder2(out2h, out3h, out4h, out5v, pred1)
 
-        pred1 = self.unetout1(d1_1)    # b 64 176 176
+        pred1 = F.interpolate(self.linearp1(pred1), size=shape, mode='bilinear')
+        pred2 = F.interpolate(self.linearp2(pred2), size=shape, mode='bilinear')
+
+        out2h = F.interpolate(self.linearr2(out2h), size=shape, mode='bilinear')
+        out3h = F.interpolate(self.linearr3(out3h), size=shape, mode='bilinear')
+        out4h = F.interpolate(self.linearr4(out4h), size=shape, mode='bilinear')
+        out5h = F.interpolate(self.linearr5(out5v), size=shape, mode='bilinear')
+        return pred1, pred2, out2h, out3h, out4h, out5h
 
 
-       # attention1 = self.bam1(out1_1,self.down01(pred1)) # b 64 88 88
-        # attention2 = self.bam2(out1_2,self.down02(pred1)) # b 128 44 44
-        # attention3 = self.bam3(out1_3,self.down03(pred1)) # b 320 22 22
-        # attention4 = self.bam4(out1_4,self.down04(pred1)) # b 512 11 11
-        #
-        #
-        #
-        # out2_3 = (attention3+self.decoder2_4(attention4)) #torch.Size([1, 320, 22, 22])
-        # out2_2 = (attention2+self.decoder2_3(out2_3))   # b 128 44 44
-        # out2_1= (attention1+self.decoder2_2(out2_2))# b 64 88 88
-        #
-        #
-        #
-        # sideout4 = self.out2_4(attention4)
-        # sideout3 = self.out2_3(out2_3)
-        # sideout2 = self.out2_2(out2_2)
-        # sideout1 = self.out2_1(out2_1)
+
 
 
 

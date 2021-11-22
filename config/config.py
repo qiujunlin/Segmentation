@@ -37,7 +37,7 @@ class DefaultConfig(object):
     use_gpu = True
 
     num_classes=1
-    augmentations =True
+    augmentations =False
 
 
 

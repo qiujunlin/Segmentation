@@ -354,14 +354,11 @@ def test7():
     #model.cpu()
     model.eval()
     args =config.DefaultConfig()
-    dice =valid(model, 'test', args)
-    print( dice)
+    for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB','test']:
+      dice =valid(model, dataset, args)
+      print(dataset, ': ', dice)
 
-def test8():
-    a = [1,2]
-    c,d =a
-    print(c,d)
 if __name__ == '__main__':
-    test8()
+    test7()
 
 

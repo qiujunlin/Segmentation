@@ -22,7 +22,7 @@ import torch.backends.cudnn as cudnn
 from torch.optim import lr_scheduler
 from dataset.Dataset import  TestDataset
 import utils.loss as loss
-
+from torch.autograd import Variable
 """
 ÆÀ¼Ûº¯Êý
 """
@@ -102,9 +102,9 @@ def train(args, model, optimizer,dataloader_train,total):
 
                 #dataprepare
                 if torch.cuda.is_available() and args.use_gpu:
-                    data = data.cuda()
-                    label = label.cuda()
-                    edgs = edgs.cuda()
+                    data = Variable(data).cuda()
+                    label = Variable(label).cuda()
+                    edgs = Variable(edgs).cuda()
 
                  # rescale
 

@@ -317,9 +317,9 @@ class COM(nn.Module):
         edge_guidance1 = F.interpolate(guidance, scale_factor=1/8, mode='bilinear')
         edge_guidance2 = F.interpolate(guidance, scale_factor=1/4, mode='bilinear')
         edge_guidance3 = F.interpolate(guidance, scale_factor=1/2, mode='bilinear')
-        # x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
-        # x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
-        # x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
+        x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
+        x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
+        x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
         x1_1 = x1
         x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
         x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) \
@@ -332,7 +332,7 @@ class COM(nn.Module):
         x3_2 = self.conv_concat3(x3_2)
 
         x1 = self.conv4(x3_2)
-        x1 =self.atte2(x1,self.attention_conv4(edge_guidance3))
+        # x1 =self.atte2(x1,self.attention_conv4(edge_guidance3))
         return  x1
 
 
@@ -370,9 +370,9 @@ class MyNet(nn.Module):
 
 
 
-        self.out1_1 =  BasicConv2d(channel, channel, 1)
-        self.out1_2 =  BasicConv2d(channel, channel, 1)
-        self.out1_3 =   BasicConv2d(channel, channel, 1)
+        self.out1_1 =  BasicConv2d(channel*2, channel, 1)
+        self.out1_2 =  BasicConv2d(channel*2, channel, 1)
+        self.out1_3 =   BasicConv2d(channel*2, channel, 1)
         self.out1_4 =   BasicConv2d(channel, channel, 1)
 
 
@@ -391,10 +391,10 @@ class MyNet(nn.Module):
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
         self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-        self.decoder3 = DecoderBlock(in_channels=channel*3, out_channels=channel)
-        self.decoder2 = DecoderBlock(in_channels=channel*3, out_channels=channel)
-        self.decoder1 = nn.Sequential(BasicConv2d(channel*3, channel*3,1),
-                                 BasicConv2d(channel*3, channel,1))
+        self.decoder3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+        self.decoder2 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+        self.decoder1 = nn.Sequential(BasicConv2d(channel*2, channel,1),
+                                 BasicConv2d(channel, channel,1))
 
 
         # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
@@ -443,29 +443,24 @@ class MyNet(nn.Module):
 
        # flusion3 =  self.asm3()
 
+        d1_4 = self.decoder4(x4)  # b 320 22 22
+        # asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
 
+        d1_3 = self.decoder3(torch.cat([d1_4, x3], dim=1))  # b 128 44 4
+        #  asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
 
-        d1_4 =self.decoder4(x4) # b 320 22 22
-        asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
+        d1_2 = self.decoder2(torch.cat([d1_3, x2], dim=1))  # b 128 88 88
+        #   asm1 = self.asm1(self.upsample(x2),x1, d1_2) # b 128 88 88
 
-        d1_3 =self.decoder3(asm3)  # b 128 44 4
-        asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
-
-        d1_2 =self.decoder2(asm2)  # b 128 88 88
-        asm1 = self.asm1(self.upsample(x2),x1, d1_2) # b 128 88 88
-
-        d1_1 =self.decoder1(asm1)  # b 64 88 88
-
+        d1_1 = self.decoder1(torch.cat([d1_2, x1], dim=1))
 
 
 
 
 
-
-
-        out1_1 = self.out1_1(d1_1+x1)  # b 64 88 88
-        out1_2 = self.out1_2(self.cobv1(asm2)+x2)  # b 64 44 44
-        out1_3 = self.out1_3(self.cobv2(asm3)+x3)    # b 64  22 22
+        out1_1 = self.out1_1(torch.cat([d1_2, x1], dim=1))  # b 64 88 88
+        out1_2 = self.out1_2(torch.cat([d1_3, x2], dim=1))  # b 64 44 44
+        out1_3 = self.out1_3(torch.cat([d1_4, x3], dim=1))    # b 64  22 22
         out1_4 = self.out1_4(x4)   # b 64 11 11
 
 
