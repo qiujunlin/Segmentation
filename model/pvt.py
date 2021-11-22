@@ -195,7 +195,6 @@ class PolypPVT(nn.Module):
         x1 = self.ca(x1) * x1 # channel attention
         cim_feature = self.sa(x1) * x1 # spatial attention
 
-
         # CFM
         x2_t = self.Translayer2_1(x2)  
         x3_t = self.Translayer3_1(x3)  

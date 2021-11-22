@@ -356,6 +356,12 @@ def test7():
     args =config.DefaultConfig()
     dice =valid(model, 'test', args)
     print( dice)
-if __name__ == '__main__':
 
-  test7()
+def test8():
+    a = [1,2]
+    c,d =a
+    print(c,d)
+if __name__ == '__main__':
+    test8()
+
+

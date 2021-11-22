@@ -317,9 +317,9 @@ class COM(nn.Module):
         edge_guidance1 = F.interpolate(guidance, scale_factor=1/8, mode='bilinear')
         edge_guidance2 = F.interpolate(guidance, scale_factor=1/4, mode='bilinear')
         edge_guidance3 = F.interpolate(guidance, scale_factor=1/2, mode='bilinear')
-        x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
-        x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
-        x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
+        # x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
+        # x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
+        # x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
         x1_1 = x1
         x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
         x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) \
@@ -332,7 +332,9 @@ class COM(nn.Module):
         x3_2 = self.conv_concat3(x3_2)
 
         x1 = self.conv4(x3_2)
+        x1 =self.atte2(x1,self.attention_conv4(edge_guidance3))
         return  x1
+
 
 class MyNet(nn.Module):
     def __init__(self, channel=32):

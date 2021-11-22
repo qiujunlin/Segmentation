@@ -230,7 +230,6 @@ class RRB(nn.Module):
         self.unify = nn.Conv2d(features, out_features, kernel_size=1, padding=0, dilation=1, bias=False)
         self.residual = nn.Sequential(BasicConv2d(out_features,out_features,1,userelu=True),BasicConv2d(out_features,out_features,1,userelu=False))
 
-
     def forward(self, feats):
         feats = self.unify(feats)
         residual = self.residual(feats)
