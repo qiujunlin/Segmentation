@@ -13,13 +13,13 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet7 import  MyNet
+from model.mynet7_3 import  MyNet
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_021_0.8259.pth.tar')
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_047_0.8288.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
