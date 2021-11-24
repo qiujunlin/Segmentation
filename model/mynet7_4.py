@@ -176,11 +176,11 @@ class ASM(nn.Module):
         self.non_local = NonLocalBlock(in_channels)
         self.selayer = SELayer(all_channels)
 
-    def forward(self, higerencoder ,encoder, decoder):
+    def forward(self, fuse):
         #decoder = self.non_local(decoder)
-        fuse = torch.cat([encoder, decoder,higerencoder], dim=1)
-        fuse = self.selayer(fuse)
-        return fuse
+       #fuse = torch.cat([encoder, decoder,higerencoder], dim=1)
+        se = self.selayer(fuse)
+        return fuse+se
 
 
 """
@@ -270,6 +270,18 @@ class SideoutBlock(nn.Module):
         x = self.conv2(x)
         return x
 
+class Down(nn.Module):
+    def __init__(self, in_channels, out_channels, scale =  2):
+        super(Down, self).__init__()
+
+        self.conv1 = BasicConv2d(in_channels, in_channels, 3,padding=1)
+
+        self.downSampe =  nn.Upsample(scale_factor=scale, mode='bilinear', align_corners=True)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.downSampe(x)
+        return x
 
 
 class COM(nn.Module):
@@ -391,10 +403,10 @@ class MyNet(nn.Module):
 
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-        self.decoder3 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder4 = DecoderBlock(in_channels=channel*4, out_channels=channel)
+        self.decoder3 = DecoderBlock(in_channels=channel*4, out_channels=channel)
         self.decoder2 = DecoderBlock(in_channels=channel*3, out_channels=channel)
-        self.decoder1 = nn.Sequential(BasicConv2d(channel*3, channel,1),
+        self.decoder1 = nn.Sequential(BasicConv2d(channel*2, channel,1),
                                  BasicConv2d(channel, channel,1))
 
 
@@ -407,10 +419,10 @@ class MyNet(nn.Module):
 
 
         # adaptive selection module
-        self.asm4 = ASM(channel, 512)
-        self.asm3 = ASM(channel, channel*3)
+        self.asm4 = ASM(channel, channel*4)
+        self.asm3 = ASM(channel, channel*4)
         self.asm2 = ASM(channel, channel*3)
-        self.asm1 = ASM(channel, channel*3)
+        self.asm1 = ASM(channel, channel*2)
 
 
         self.unetout1 =  nn.Conv2d(channel, 1, 1)
@@ -424,6 +436,13 @@ class MyNet(nn.Module):
         self.COM =COM(channel)
         self.cobv1 =BasicConv2d(3*channel,channel,1)
         self.cobv2 =BasicConv2d(3*channel,channel,1)
+
+        self.down4_1 =Down(channel,channel,1/8)
+        self.down4_2 =Down(channel,channel,1/4)
+        self.down4_3 =Down(channel,channel,1/2)
+        self.down3_1 =Down(channel,channel,1/4)
+        self.down3_2 =Down(channel,channel,1/2)
+        self.down2_1 =Down(channel,channel,1/2)
 
 
 
@@ -444,14 +463,24 @@ class MyNet(nn.Module):
 
        # flusion3 =  self.asm3()
 
-        d1_4 = self.decoder4(x4)  # b 320 22 22
-        asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
+
+        x4_1 = self.down4_1(x1)
+        x4_2 = self.down4_2(x2)
+        x4_3 = self.down4_3(x3)
+        x3_2 = self.down3_2(x2)
+        x3_1 = self.down3_1(x1)
+        x2_1 = self.down2_1(x1)
+
+        asm4 =self.asm4(torch.cat((x4,x4_1,x4_2,x4_3),dim=1))
+        d1_4 = self.decoder4(asm4)  # b 320 22 22
+
+        asm3 =self.asm3(torch.cat((x3,d1_4,x3_2,x3_1),dim=1)) # 512+320+320
 
         d1_3 = self.decoder3(asm3)  # b 128 44 4
-        asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
+        asm2 = self.asm2(torch.cat((x2,d1_3,x2_1),dim=1))
 
         d1_2 = self.decoder2(asm2)  # b 128 88 88
-        asm1 = self.asm1(self.upsample(x2),x1, d1_2) # b 128 88 88
+        asm1 = self.asm1(torch.cat((x1,d1_2),dim=1)) # b 128 88 88
 
         d1_1 = self.decoder1(asm1)
 
@@ -459,25 +488,25 @@ class MyNet(nn.Module):
 
 
 
-        out1_1 = self.out1_1(asm1)*x1  # b 64 88 88
-        out1_2 = self.out1_2(asm2)*x2  # b 64 44 44
-        out1_3 = self.out1_3(asm3)*x3    # b 64  22 22
-        out1_4 = self.out1_4(x4)   # b 64 11 11
+        # out1_1 = self.out1_1(asm1)*x1  # b 64 88 88
+        # out1_2 = self.out1_2(asm2)*x2  # b 64 44 44
+        # out1_3 = self.out1_3(asm3)*x3    # b 64  22 22
+        # out1_4 = self.out1_4(x4)   # b 64 11 11
 
 
 
 
         pred1 = self.unetout1(d1_1)    # b 64 176 176
 
-
-        pred2 = self.COM(out1_4,out1_3,out1_2,out1_1)
-        pred2 =self.unetout2(pred2)
-
-        pred2 =F.interpolate(pred2,scale_factor=8,mode='bilinear')
+        #
+        # pred2 = self.COM(out1_4,out1_3,out1_2,out1_1)
+        # pred2 =self.unetout2(pred2)
+        #
+        # pred2 =F.interpolate(pred2,scale_factor=8,mode='bilinear')
         pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
 
 
-        return pred1,pred2
+        return pred1
 
 
 
@@ -485,9 +514,9 @@ if __name__ == '__main__':
     model = MyNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    pred1,pred2= model(input_tensor)
+    pred1= model(input_tensor)
     print(pred1.size())
-    print(pred2.size())
+    # print(pred2.size())
     # print(prediction1.size())
     # print(prediction2.size())
     # print(prediction3.size())

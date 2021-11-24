@@ -5,23 +5,21 @@ from torch.utils.data import DataLoader
 import warnings
 # action参数可以设置为ignore，一位一次也不喜爱你是，once表示为只显示一次
 warnings.filterwarnings(action='ignore')
-import socket
+
 from datetime import datetime
 import os
 import torch
-from tensorboardX import SummaryWriter
-import tqdm
-import torch.nn as nn
+
 from torch.nn import functional as F
 import numpy as np
-from  PIL import Image
+
 import utils.utils as u
 
 from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
-from torch.optim import lr_scheduler
+
 from dataset.Dataset import  TestDataset
-import utils.loss as loss
+
 from torch.autograd import Variable
 """
 评价函数
@@ -32,10 +30,9 @@ from torch.autograd import Variable
 """
 
 from dataset.Dataset import Dataset
-from model.BaseNet import CPFNet
-from model.resunet import  Resunet
-# from  model.mynet2 import MyNet
-from  model.mynet7 import MyNet
+
+from  model.mynet7_6 import MyNet
+
 
 
 def valid(model, dataset,args):
@@ -56,9 +53,9 @@ def valid(model, dataset,args):
             gt = np.asarray(gt, np.float32)
             gt /= (gt.max() + 1e-8)
             image = image.cuda()
-            pred1,pred2 = model(image)
+            prediction1, prediction2 = model(image)
             # eval Dice
-            res = F.upsample(pred1+pred2 , size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = F.upsample(prediction1+prediction2 , size=gt.shape[2:], mode='bilinear', align_corners=False)
             res = res.sigmoid().data.cpu().numpy().squeeze()
             res = (res - res.min()) / (res.max() - res.min() + 1e-8)
             input = res
@@ -85,12 +82,8 @@ def train(args, model, optimizer,dataloader_train,total):
     best_dice=0
     best_epo =0
     BCE = torch.nn.BCEWithLogitsLoss()
+    criterion = u.BceDiceLoss()
     for epoch in range(1, args.num_epochs+1):
-        print("                            _ooOoo_                     ")
-        print("                           o8888888o                    ")
-        print("                           88  .  88                    ")
-        print("                           (| -_- |)                    ")
-        print("                            O\\ = /O                    ")
         u.adjust_lr(optimizer, args.lr, epoch, args.decay_rate, args.decay_epoch)
         size_rates = [0.75, 1, 1.25]  # replace your desired scale, try larger scale for better accuracy in small object
         model.train()
@@ -119,14 +112,13 @@ def train(args, model, optimizer,dataloader_train,total):
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                pred1,pred2 =model(data)
+                prediction1, prediction2 =model(data)
 
                 """
                 计算损失函数
                 """
 
-                loss =  u.structure_loss(pred1,label) + u.structure_loss(pred2,label)
-                #         u.structure_loss(out3,label)+u.structure_loss(out4,label)+u.structure_loss(pred1,label )
+                loss = u.bce_dice(prediction1,label)+u.bce_dice(prediction2,label)
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)

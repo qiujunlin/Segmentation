@@ -140,10 +140,10 @@ class DecoderBlock(nn.Module):
                  kernel_size=3, stride=1, padding=1):
         super(DecoderBlock, self).__init__()
 
-        self.conv1 = BasicConv2d(in_channels, in_channels // 4, kernel_size=kernel_size,
+        self.conv1 = BasicConv2d(in_channels, in_channels , kernel_size=kernel_size,
                                stride=stride, padding=padding)
 
-        self.conv2 = BasicConv2d(in_channels // 4, out_channels, kernel_size=kernel_size,
+        self.conv2 = BasicConv2d(in_channels, out_channels, kernel_size=kernel_size,
                                stride=stride, padding=padding)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
@@ -169,6 +169,7 @@ class SELayer(nn.Module):
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
+
 class ASM(nn.Module):
     def __init__(self, in_channels, all_channels):
         super(ASM, self).__init__()
@@ -176,7 +177,7 @@ class ASM(nn.Module):
         self.selayer = SELayer(all_channels)
 
     def forward(self, higerencoder ,encoder, decoder):
-        decoder = self.non_local(decoder)
+        #decoder = self.non_local(decoder)
         fuse = torch.cat([encoder, decoder,higerencoder], dim=1)
         fuse = self.selayer(fuse)
         return fuse
@@ -274,29 +275,29 @@ class SideoutBlock(nn.Module):
 class COM(nn.Module):
     def __init__(self, channel):
         super(COM, self).__init__()
-        self.relu = nn.ReLU(True)
-
-        self.co1_1 = BasicConv2d(channel,channel,kernel_size=1)
-        self.co1_2 = BasicConv2d(channel*2,channel,kernel_size=1)
-        self.co1_3 = BasicConv2d(channel,channel,kernel_size=1)
-        self.co1_4 = BasicConv2d(channel,channel,kernel_size=1)
-
-        self.co2_1 = BasicConv2d(channel, channel, kernel_size=1)
-        self.co2_2 = BasicConv2d(channel + channel, channel, kernel_size=1)
-        self.co2_3 = BasicConv2d(channel, channel, kernel_size=1)
-        self.co2_4 = BasicConv2d(channel, channel, kernel_size=1)
-
-        self.co3_1 = BasicConv2d(channel, channel, kernel_size=1)
-        self.co3_2 = BasicConv2d(channel + channel, channel, kernel_size=1)
-        self.co3_3 = BasicConv2d(channel, channel, kernel_size=1)
-        self.co3_4 = BasicConv2d(channel, channel, kernel_size=1)
-
-
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.conv_upsample1 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample2 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample3 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample4 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv_upsample5 = BasicConv2d(2 * channel, 2 * channel, 3, padding=1)
+
+        self.conv_concat2 = BasicConv2d(2 * channel, 2 * channel, 3, padding=1)
+        self.conv_concat3 = BasicConv2d(3 * channel, 3 * channel, 3, padding=1)
+        self.conv4 = BasicConv2d(3 * channel, channel, 3, padding=1)
+
+        # attention
+        self.attention_conv2= BasicConv2d(channel,channel,1)
+        self.attention_conv3= BasicConv2d(channel,channel,1)
+        self.attention_conv4= BasicConv2d(channel,channel,1)
+
+        self.atte2 = BCA(channel,channel,channel)
+        self.atte3 = BCA(channel,channel,channel)
+        self.atte4 = BCA(channel,channel,channel)
 
         self.conv4 = BasicConv2d(3 * channel, channel, 3, padding=1)
 
-    def forward(self, x1, x2, x3,edge_guidance):
+    def forward(self, x1, x2, x3,guidance):
 
         """
         edge_guidance  -> x1 bs 32 88 88
@@ -314,94 +315,30 @@ class COM(nn.Module):
         """
 
         #x1_1 = x1  # 32,88, 88
-        edge_guidance1 = F.interpolate(edge_guidance, scale_factor=1/8, mode='bilinear')
-        edge_guidance2 = F.interpolate(edge_guidance, scale_factor=1/4, mode='bilinear')
-        edge_guidance3 = F.interpolate(edge_guidance, scale_factor=1/2, mode='bilinear')
+        edge_guidance1 = F.interpolate(guidance, scale_factor=1/8, mode='bilinear')
+        edge_guidance2 = F.interpolate(guidance, scale_factor=1/4, mode='bilinear')
+        edge_guidance3 = F.interpolate(guidance, scale_factor=1/2, mode='bilinear')
+        x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
+        x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
+        x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
+        x1_1 = x1
+        x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
+        x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) \
+               * self.conv_upsample3(self.upsample(x2)) * x3
 
-        x1_1 = torch.cat((self.co1_1(x1),edge_guidance1),dim=1)
-        x1_2 = F.relu(self.co1_2(x1_1))
-        x1_3 = F.relu(self.co1_3(x1_2))
-        x1_4 = F.relu(self.co1_4(x1_3))
+        x2_2 = torch.cat((x2_1, self.conv_upsample4(self.upsample(x1_1))), 1)
+        x2_2 = self.conv_concat2(x2_2)
 
-        x2_1 = torch.cat((self.co1_1(x2), edge_guidance2), dim=1)
-        x2_2 = F.relu(self.co1_2(x2_1))
-        x2_3 = F.relu(self.co1_3(x2_2))
-        x2_4 = F.relu(self.co1_4(x2_3))
-        x2_5 = self.upsample(x1_4)*x2_4
+        x3_2 = torch.cat((x3_1, self.conv_upsample5(self.upsample(x2_2))), 1)
+        x3_2 = self.conv_concat3(x3_2)
 
-
-        x3_1 = torch.cat((self.co1_1(x3), edge_guidance3), dim=1)
-        x3_2 = F.relu(self.co1_2(x3_1))
-        x3_3 = F.relu(self.co1_3(x3_2))
-        x3_4 = F.relu(self.co1_4(x3_3))
-        x3_5 = self.upsample(x2_5)*x3_4
-
-        x = torch.cat([self.upsample(self.upsample(x1_4)) ,self.upsample(x2_5), x3_5],dim=1)
-        x = self.conv4(x)
-        return  x
-class CFM(nn.Module):
-    def __init__(self,channel=32):
-        super(CFM, self).__init__()
-        self.conv1h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn1h   = nn.BatchNorm2d(channel)
-        self.conv2h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn2h   = nn.BatchNorm2d(channel)
-        self.conv3h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn3h   = nn.BatchNorm2d(channel)
-        self.conv4h = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn4h   = nn.BatchNorm2d(channel)
-
-        self.conv1v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn1v   = nn.BatchNorm2d(channel)
-        self.conv2v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn2v   = nn.BatchNorm2d(channel)
-        self.conv3v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn3v   = nn.BatchNorm2d(channel)
-        self.conv4v = nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1)
-        self.bn4v   = nn.BatchNorm2d(channel)
-
-    def forward(self, left, down):
-        if down.size()[2:] != left.size()[2:]:
-            down = F.interpolate(down, size=left.size()[2:], mode='bilinear')
-        out1h = F.relu(self.bn1h(self.conv1h(left )), inplace=True)
-        out2h = F.relu(self.bn2h(self.conv2h(out1h)), inplace=True)
-        out1v = F.relu(self.bn1v(self.conv1v(down )), inplace=True)
-        out2v = F.relu(self.bn2v(self.conv2v(out1v)), inplace=True)
-        fuse  = out2h*out2v
-        out3h = F.relu(self.bn3h(self.conv3h(fuse )), inplace=True)+out1h
-        out4h = F.relu(self.bn4h(self.conv4h(out3h)), inplace=True)
-        out3v = F.relu(self.bn3v(self.conv3v(fuse )), inplace=True)+out1v
-        out4v = F.relu(self.bn4v(self.conv4v(out3v)), inplace=True)
-        return out4h, out4v
-
-
-
-class Decoder(nn.Module):
-    def __init__(self):
-        super(Decoder, self).__init__()
-        self.cfm45  = CFM()
-        self.cfm34  = CFM()
-        self.cfm23  = CFM()
-
-    def forward(self, out2h, out3h, out4h, out5v, fback=None):
-        if fback is not None:
-            refine5      = F.interpolate(fback, size=out5v.size()[2:], mode='bilinear')
-            refine4      = F.interpolate(fback, size=out4h.size()[2:], mode='bilinear')
-            refine3      = F.interpolate(fback, size=out3h.size()[2:], mode='bilinear')
-            refine2      = F.interpolate(fback, size=out2h.size()[2:], mode='bilinear')
-            out5v        = out5v+refine5
-            out4h, out4v = self.cfm45(out4h+refine4, out5v)
-            out3h, out3v = self.cfm34(out3h+refine3, out4v)
-            out2h, pred  = self.cfm23(out2h+refine2, out3v)
-        else:
-            out4h, out4v = self.cfm45(out4h, out5v)
-            out3h, out3v = self.cfm34(out3h, out4v)
-            out2h, pred  = self.cfm23(out2h, out3v)
-        return out2h, out3h, out4h, out5v, pred
+        x1 = self.conv4(x3_2)
+        # x1 =self.atte2(x1,self.attention_conv4(edge_guidance3))
+        return  x1
 
 
 class MyNet(nn.Module):
-    def __init__(self, channel=64):
+    def __init__(self, channel=32):
         super(MyNet, self).__init__()
 
         self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]
@@ -434,10 +371,10 @@ class MyNet(nn.Module):
 
 
 
-        self.out1_1 =  BasicConv2d(64, channel, 1)
-        self.out1_2 =  BasicConv2d(128, channel, 1)
-        self.out1_3 =   BasicConv2d(320, channel, 1)
-        self.out1_4 =   BasicConv2d(512, channel, 1)
+        self.out1_1 =  BasicConv2d(channel*3, channel, 1)
+        self.out1_2 =  BasicConv2d(channel*3, channel, 1)
+        self.out1_3 =   BasicConv2d(channel*3, channel, 1)
+        self.out1_4 =   BasicConv2d(channel, channel, 1)
 
 
         self.out2_1 =  BasicConv2d(64, 1, 1)
@@ -454,17 +391,18 @@ class MyNet(nn.Module):
 
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-       #  self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-       #  self.decoder3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-       #  self.decoder2 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-       #  self.decoder1 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-       #
+        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
+        self.decoder3 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder2 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder1 = nn.Sequential(BasicConv2d(channel*3, channel,1),
+                                 BasicConv2d(channel, channel,1))
+
 
         # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder2_4 = DecoderBlock(in_channels=channel, out_channels=320)
-        self.decoder2_3 = DecoderBlock(in_channels=channel*2, out_channels=128)
-        self.decoder2_2 = DecoderBlock(in_channels=channel*2, out_channels=64)
-        self.decoder2_1 = DecoderBlock(in_channels=channel*2, out_channels=64)
+        self.decoder2_4 = DecoderBlock(in_channels=channel, out_channels=channel)
+        self.decoder2_3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+        self.decoder2_2 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+        self.decoder2_1 = DecoderBlock(in_channels=channel*2, out_channels=channel)
 
 
 
@@ -474,30 +412,24 @@ class MyNet(nn.Module):
         self.asm2 = ASM(channel, channel*3)
         self.asm1 = ASM(channel, channel*3)
 
-        self.unetout1  = nn.Sequential(BasicConv2d(64, 32, kernel_size=3, stride=1, padding=1),
-                                      nn.Conv2d(32, 1, 1))
-        self.unetout1 = nn.Sequential(BasicConv2d(channel, channel, kernel_size=3, stride=1, padding=1),
-                                      nn.Conv2d(channel, 1, 1))
+
+        self.unetout1 =  nn.Conv2d(channel, 1, 1)
+        self.unetout2 =  nn.Conv2d(channel, 1, 1)
 
 
 
 
 
-        # Sideout
-        self.sideout4= SideoutBlock(32, 1)
-        self.sideout3 = SideoutBlock(32, 1)
-        self.sideout2 = SideoutBlock(32, 1)
-        self.sideout1 = SideoutBlock(32, 1)
 
-        self.decoder1 = Decoder()
-        self.decoder2 = Decoder()
-        self.linearp1 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
-        self.linearp2 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
 
-        self.linearr2 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
-        self.linearr3 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
-        self.linearr4 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
-        self.linearr5 = nn.Conv2d(64, 1, kernel_size=3, stride=1, padding=1)
+
+
+
+        self.COM =COM(channel)
+        self.cobv1 =BasicConv2d(3*channel,channel,1)
+        self.cobv2 =BasicConv2d(3*channel,channel,1)
+
+
 
 
 
@@ -510,19 +442,56 @@ class MyNet(nn.Module):
         x2 = pvt[1]   # 1 128 44 44
         x3 = pvt[2]   # 1 320 22 22
         x4 = pvt[3]   # 1 512 11 11
-        out2h =self.Translayer1(x1)
-        out3h =self.Translayer2(x2)
-        out4h =self.Translayer3(x3)
-        out5v =self.Translayer4(x4)
+        x1 =self.Translayer1(x1)
+        x2 =self.Translayer2(x2)
+        x3 =self.Translayer3(x3)
+        x4 =self.Translayer4(x4)
+
+       # flusion3 =  self.asm3()
+
+        d1_4 = self.decoder4(x4)  # b 320 22 22
+        asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
+
+        d1_3 = self.decoder3(asm3)  # b 128 44 4
+        asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
+
+        d1_2 = self.decoder2(asm2)  # b 128 88 88
+        asm1 = self.asm1(self.upsample(x2),x1, d1_2) # b 128 88 88
+
+      #  d1_1 = self.decoder1(asm1)
 
 
 
 
 
-        pred1 = F.interpolate(pred1, scale_factor=2, mode='bilinear')
+        out1_1 = self.out1_1(asm1)*x1  # b 64 88 88
+        out1_2 = self.out1_2(asm2)*x2  # b 64 44 44
+        out1_3 = self.out1_3(asm3)*x3    # b 64  22 22
+        out1_4 = self.out1_4(x4)   # b 64 11 11
+
+        out2_4 = self.decoder2_4(out1_4)
+        out2_3 = self.decoder2_3(torch.cat((out2_4,out1_3),dim=1))
+        out2_2 = self.decoder2_3(torch.cat((out2_3,out1_2),dim=1))
+        out2_1 = self.decoder2_1(torch.cat((out2_2,out1_1),dim=1))
 
 
-        return pred1
+
+
+
+
+
+     #   pred1 = self.unetout1(d1_1)    # b 64 176 176
+#        pred2 = self.unetout2(out2_1)    # b 64 176 176
+
+
+ #       pred2 = self.COM(out1_4,out1_3,out1_2,out1_1)
+        pred2 =self.unetout2(out2_1)
+
+        pred2 =F.interpolate(pred2,scale_factor=2,mode='bilinear')
+       # pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
+
+
+        return pred2
 
 
 
@@ -530,8 +499,9 @@ if __name__ == '__main__':
     model = MyNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    pred1= model(input_tensor)
-    print(pred1.size())
+    pred2= model(input_tensor)
+    print(pred2.size())
+  # print(pred2.size())
     # print(prediction1.size())
     # print(prediction2.size())
     # print(prediction3.size())

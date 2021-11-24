@@ -176,7 +176,7 @@ class ASM(nn.Module):
         self.selayer = SELayer(all_channels)
 
     def forward(self, higerencoder ,encoder, decoder):
-        decoder = self.non_local(decoder)
+       # decoder = self.non_local(decoder)
         fuse = torch.cat([encoder, decoder,higerencoder], dim=1)
         fuse = self.selayer(fuse)
         return fuse
@@ -395,9 +395,9 @@ class MyNet(nn.Module):
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
         self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-        self.decoder3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-        self.decoder2 = DecoderBlock(in_channels=channel*2, out_channels=channel)
-        self.decoder1 = DecoderBlock(in_channels=channel*2, out_channels=channel)
+        self.decoder3 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder2 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder1 = DecoderBlock(in_channels=channel*3, out_channels=channel)
 
 
         # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)

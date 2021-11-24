@@ -13,22 +13,22 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet7_3 import  MyNet
+from model.mynet7_6 import  MyNet
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_047_0.8288.pth.tar')
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_028_0.8306.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
 
  for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
-    data_path = 'E:\dataset\data\TestDataset\{}\\'.format(_data_name)
+    data_path = 'E:\dataset\dataset\TestDataset\{}\\'.format(_data_name)
 
-    save_path = 'E:\dataset\data\TestDataset\{}\output/'.format(_data_name)
-    edge_save_path = 'E:\dataset\data\TestDataset\{}\edgeoutput/'.format(_data_name)
+    save_path = 'E:\dataset\dataset\TestDataset\{}\output/'.format(_data_name)
+    edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
     model = MyNet()
     model = torch.nn.DataParallel(model)
