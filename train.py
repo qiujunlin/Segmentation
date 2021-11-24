@@ -31,7 +31,7 @@ from torch.autograd import Variable
 
 from dataset.Dataset import Dataset
 
-from  model.mynet7_6 import MyNet
+from  model.mynet7_11 import MyNet
 
 
 

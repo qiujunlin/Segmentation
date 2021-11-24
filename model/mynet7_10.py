@@ -295,7 +295,9 @@ class COM(nn.Module):
         self.atte3 = BCA(channel,channel,channel)
         self.atte4 = BCA(channel,channel,channel)
 
-        self.conv4 = BasicConv2d(3 * channel, channel, 3, padding=1)
+        self.conv1 = BasicConv2d( channel, 1, 3, padding=1)
+        self.conv2 = BasicConv2d(channel, 1, 3, padding=1)
+        self.conv3 = BasicConv2d(channel, 1, 3, padding=1)
 
     def forward(self, x1, x2, x3,guidance):
 
@@ -321,20 +323,15 @@ class COM(nn.Module):
         x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
         x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
         x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
-        x1_1 = x1
-        x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
-        x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) \
-               * self.conv_upsample3(self.upsample(x2)) * x3
 
-        x2_2 = torch.cat((x2_1, self.conv_upsample4(self.upsample(x1_1))), 1)
-        x2_2 = self.conv_concat2(x2_2)
 
-        x3_2 = torch.cat((x3_1, self.conv_upsample5(self.upsample(x2_2))), 1)
-        x3_2 = self.conv_concat3(x3_2)
 
-        x1 = self.conv4(x3_2)
+        x1 = self.conv1(x1)
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+
         # x1 =self.atte2(x1,self.attention_conv4(edge_guidance3))
-        return  x1
+        return  x1,x2,x3
 
 
 class MyNet(nn.Module):
@@ -476,14 +473,18 @@ class MyNet(nn.Module):
 
 
 
-        pred2 = self.COM(out1_4,out1_3,out1_2,out1_1)
-        pred2 =self.unetout2(pred2)
+        x1,x2,x3 = self.COM(out1_4,out1_3,out1_2,out1_1)
 
-        pred2 =F.interpolate(pred2,scale_factor=8,mode='bilinear')
+
+        pred2 =F.interpolate(x1,scale_factor= 32,mode='bilinear')
+        pred3 =F.interpolate(x2,scale_factor= 16,mode='bilinear')
+        pred4 =F.interpolate(x3,scale_factor= 8,mode='bilinear')
+
+      #  pred2 =F.interpolate(pred2,scale_factor=8,mode='bilinear')
         pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
 
 
-        return pred1,pred2
+        return pred1,pred2,pred3,pred4
 
 
 
@@ -491,9 +492,11 @@ if __name__ == '__main__':
     model = MyNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    pred2,pred1= model(input_tensor)
+    pred1,pred2,pred3,pred4= model(input_tensor)
     print(pred2.size())
     print(pred1.size())
+    print(pred4.size())
+    print(pred3.size())
     # print(prediction1.size())
     # print(prediction2.size())
     # print(prediction3.size())

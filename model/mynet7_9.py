@@ -338,17 +338,21 @@ class COM(nn.Module):
 
 
 class MyNet(nn.Module):
-    def __init__(self, channel=64):
+    def __init__(self, channel=32):
         super(MyNet, self).__init__()
 
         self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]
-        self.resnet = res2net50_v1b_26w_4s(pretrained=True)
+        path = 'F:\pretrain\pvt_v2_b3.pth'
+        save_model = torch.load(path)
+        model_dict = self.backbone.state_dict()
+        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.backbone.load_state_dict(model_dict)
 
-        self.Translayer1= BasicConv2d(256, channel, 1)
-        self.Translayer2 = BasicConv2d(512, channel, 1)
-        self.Translayer3 = BasicConv2d(1024, channel, 1)
-        self.Translayer4 = BasicConv2d(2048, channel, 1)
-
+        self.Translayer1 = BasicConv2d(64, channel, 1)
+        self.Translayer2 = BasicConv2d(128, channel, 1)
+        self.Translayer3 = BasicConv2d(320, channel, 1)
+        self.Translayer4 = BasicConv2d(516, channel, 1)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
@@ -429,24 +433,15 @@ class MyNet(nn.Module):
 
     def forward(self, x):
         # backbone
-        x = self.resnet.conv1(x)
-        x = self.resnet.bn1(x)
-        x = self.resnet.relu(x)
-
-        # ---- low-level features ----
-        x = self.resnet.maxpool(x)  # bs, 64, 88, 88
-        x1 = self.resnet.layer1(x)  # bs, 256, 88, 88
-
-        # ---- high-level features ----
-        x2 = self.resnet.layer2(x1)  # bs, 512, 44, 44
-        x3 = self.resnet.layer3(x2)  # bs, 1024, 22, 22
-        x4 = self.resnet.layer4(x3)  # bs, 2048, 11, 11
-
-
-        x1 =self.Translayer1(x1)
-        x2 =self.Translayer2(x2)
-        x3 =self.Translayer3(x3)
-        x4 =self.Translayer4(x4)
+        pvt = self.backbone(x)
+        x1 = pvt[0]  # 1 64 88 88
+        x2 = pvt[1]  # 1 128 44 44
+        x3 = pvt[2]  # 1 320 22 22
+        x4 = pvt[3]  # 1 512 11 11
+        x1 = self.Translayer1(x1)
+        x2 = self.Translayer2(x2)
+        x3 = self.Translayer3(x3)
+        x4 = self.Translayer4(x4)
 
         asm4 =self.asm4(x4,self.down01(x3),self.nocal(x4))
 

@@ -26,25 +26,6 @@ class BasicConv2d(nn.Module):
 
         return x
 
-
-
-
-class GCN(nn.Module):
-    def __init__(self, num_state, num_node, bias=False):
-        super(GCN, self).__init__()
-        self.conv1 = nn.Conv1d(num_node, num_node, kernel_size=1)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv1d(num_state, num_state, kernel_size=1, bias=bias)
-
-    def forward(self, x):
-        h = self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1)
-        h = h - x
-        h = self.relu(self.conv2(h))
-        return h
-
-
-
-
 class ChannelAttention(nn.Module):
     def __init__(self, in_planes, ratio=16):
         super(ChannelAttention, self).__init__()
@@ -323,8 +304,7 @@ class COM(nn.Module):
         x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
         x1_1 = x1
         x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
-        x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) \
-               * self.conv_upsample3(self.upsample(x2)) * x3
+        x3_1 = self.conv_upsample3(self.upsample(x2)) * x3
 
         x2_2 = torch.cat((x2_1, self.conv_upsample4(self.upsample(x1_1))), 1)
         x2_2 = self.conv_concat2(x2_2)
@@ -349,10 +329,11 @@ class MyNet(nn.Module):
         model_dict.update(state_dict)
         self.backbone.load_state_dict(model_dict)
 
-        self.Translayer1 = BasicConv2d(64, channel, 1)
+        self.Translayer1= BasicConv2d(64, channel, 1)
         self.Translayer2 = BasicConv2d(128, channel, 1)
         self.Translayer3 = BasicConv2d(320, channel, 1)
         self.Translayer4 = BasicConv2d(512, channel, 1)
+
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
@@ -376,9 +357,9 @@ class MyNet(nn.Module):
         self.out1_4 =   BasicConv2d(channel*3, channel, 1)
 
 
-        self.out2_1 =  BasicConv2d(256, 1, 1)
-        self.out2_2 =  BasicConv2d(512, 1, 1)
-        self.out2_3 =   BasicConv2d(1024, 1, 1)
+        self.out2_1 =  BasicConv2d(64, 1, 1)
+        self.out2_2 =  BasicConv2d(128, 1, 1)
+        self.out2_3 =   BasicConv2d(320, 1, 1)
         self.out2_4 =   BasicConv2d(512, 1, 1)
 
         self.refineconv =  BasicConv2d(3, 1, 1)
@@ -434,14 +415,14 @@ class MyNet(nn.Module):
     def forward(self, x):
         # backbone
         pvt = self.backbone(x)
-        x1 = pvt[0]  # 1 64 88 88
-        x2 = pvt[1]  # 1 128 44 44
-        x3 = pvt[2]  # 1 320 22 22
-        x4 = pvt[3]  # 1 512 11 11
-        x1 = self.Translayer1(x1)
-        x2 = self.Translayer2(x2)
-        x3 = self.Translayer3(x3)
-        x4 = self.Translayer4(x4)
+        x1 = pvt[0]   # 1 64 88 88
+        x2 = pvt[1]   # 1 128 44 44
+        x3 = pvt[2]   # 1 320 22 22
+        x4 = pvt[3]   # 1 512 11 11
+        x1 =self.Translayer1(x1)
+        x2 =self.Translayer2(x2)
+        x3 =self.Translayer3(x3)
+        x4 =self.Translayer4(x4)
 
         asm4 =self.asm4(x4,self.down01(x3),self.nocal(x4))
 
@@ -470,6 +451,11 @@ class MyNet(nn.Module):
         # out2_3 = self.decoder2_3(torch.cat((out2_4,out1_3),dim=1))
         # out2_2 = self.decoder2_3(torch.cat((out2_3,out1_2),dim=1))
         # out2_1 = self.decoder2_1(torch.cat((out2_2,out1_1),dim=1))
+
+
+
+
+
 
 
         pred1 = self.unetout1(d1_1)    # b 64 176 176
