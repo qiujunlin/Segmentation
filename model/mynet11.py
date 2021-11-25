@@ -519,6 +519,31 @@ class MyNet(nn.Module):
 
 
 
+        out2h, out3h, out4h, out5v = self.squeeze2(out2h), self.squeeze3(out3h), self.squeeze4(out4h), self.squeeze5(
+            out5v)
+        out2h, out3h, out4h, out5v, pred1 = self.decoder1(out2h, out3h, out4h, out5v)
+        out2h, out3h, out4h, out5v, pred2 = self.decoder2(out2h, out3h, out4h, out5v, pred1)
+
+        pred1 = F.interpolate(self.linearp1(pred1), size=shape, mode='bilinear')
+        pred2 = F.interpolate(self.linearp2(pred2), size=shape, mode='bilinear')
+
+        out2h = F.interpolate(self.linearr2(out2h), size=shape, mode='bilinear')
+        out3h = F.interpolate(self.linearr3(out3h), size=shape, mode='bilinear')
+        out4h = F.interpolate(self.linearr4(out4h), size=shape, mode='bilinear')
+        out5h = F.interpolate(self.linearr5(out5v), size=shape, mode='bilinear')
+        return pred1, pred2, out2h, out3h, out4h, out5h
+
+
+
+
+
+
+
+
+        # prediction1 = F.interpolate(sideout4, scale_factor=32, mode='bilinear')
+        # prediction2 = F.interpolate(sideout3, scale_factor=16, mode='bilinear')
+        # prediction3 = F.interpolate(sideout2, scale_factor=8, mode='bilinear')
+        # prediction4 = F.interpolate(sideout1, scale_factor=4, mode='bilinear')
         pred1 = F.interpolate(pred1, scale_factor=2, mode='bilinear')
 
 
