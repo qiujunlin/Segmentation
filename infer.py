@@ -13,13 +13,13 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet7_6 import  MyNet
+from model.mynet7_12 import  MyNet
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_028_0.8306.pth.tar')
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_023_0.8268.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         gt /= (gt.max() + 1e-8)
         img = img.cuda()
         prediction1,prediction2= model(img)
-        res = F.upsample(prediction1+prediction2, size=gt.shape[2:], mode='bilinear', align_corners=False)
+        res = F.upsample(prediction2+prediction1, size=gt.shape[2:], mode='bilinear', align_corners=False)
         res = res.sigmoid().data.cpu().numpy().squeeze()
         res = (res - res.min()) / (res.max() - res.min() + 1e-8)
         #path =save_path+  "".join(name)

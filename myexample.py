@@ -357,8 +357,15 @@ def test7():
     for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB','test']:
       dice =valid(model, dataset, args)
       print(dataset, ': ', dice)
+def test8():
+
+     for f in os.listdir("E:\dataset\datasetnew\TestDataset/test\masks"):
+         if "CVC-300" in f :
+             path = "E:\dataset\datasetnew\TestDataset/test/masks/" + f
+             os.remove(path)
+
 
 if __name__ == '__main__':
-    test7()
+    test8()
 
 
