@@ -13,21 +13,21 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet7_12 import  MyNet
+from model.mynet7_16 import  MyNet
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_023_0.8268.pth.tar')
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_026_0.8316.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
 
  for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
-    data_path = 'E:\dataset\dataset\TestDataset\{}\\'.format(_data_name)
-
-    save_path = 'E:\dataset\dataset\TestDataset\{}\output/'.format(_data_name)
+ #for _data_name in ['test']:
+    data_path = r'E:\dataset\dataset\TestDataset\{}\\'.format(_data_name)
+    save_path = r'E:\dataset\dataset\TestDataset\{}\output/'.format(_data_name)
     edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
     model = MyNet()

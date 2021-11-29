@@ -461,10 +461,7 @@ class MyNet(nn.Module):
 
         pred2 = F.interpolate(pred2,scale_factor=4,mode='bilinear')
         pred1 = F.interpolate(pred1,scale_factor=4,mode='bilinear')
-        out2_1 = F.interpolate(out2_1, scale_factor=4, mode='bilinear')
-        out2_2 = F.interpolate(out2_2, scale_factor=8, mode='bilinear')
-        out2_3 = F.interpolate(out2_3, scale_factor=16, mode='bilinear')
-        out2_4 = F.interpolate(out2_4, scale_factor=32, mode='bilinear')
+
 
         return pred1,pred2,out2_1,out2_2,out2_3,out2_4
 

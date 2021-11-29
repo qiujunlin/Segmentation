@@ -355,10 +355,10 @@ class MyNet(nn.Module):
         self.upsample2 = nn.Upsample(scale_factor=16, mode='bilinear', align_corners=True)
         self.upsample3 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
 
-        self.out1_1 =  BasicConv2d(channel*2, channel, 1)
+        self.out1_1 =  BasicConv2d(channel*3, channel, 1)
         self.out1_2 =  BasicConv2d(channel*3, channel, 1)
         self.out1_3 =   BasicConv2d(channel*3, channel, 1)
-        self.out1_4 =   BasicConv2d(channel*3, channel, 1)
+        self.out1_4 =   BasicConv2d(channel, channel, 1)
 
 
         self.refineconv =  BasicConv2d(3, 1, 1)
@@ -370,10 +370,10 @@ class MyNet(nn.Module):
 
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder4 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
         self.decoder3 = DecoderBlock(in_channels=channel*3, out_channels=channel)
         self.decoder2 = DecoderBlock(in_channels=channel*3, out_channels=channel)
-        self.decoder1 = nn.Sequential(BasicConv2d(channel*2, channel,1),
+        self.decoder1 = nn.Sequential(BasicConv2d(channel*3, channel,1),
                                  BasicConv2d(channel, channel,1))
 
 
@@ -398,7 +398,7 @@ class MyNet(nn.Module):
         self.cobv1 =BasicConv2d(3*channel,channel,1)
         self.cobv2 =BasicConv2d(3*channel,channel,1)
         self.nocal = NonLocalBlock(channel)
-        self.selayer = SELayer(channel*2)
+        self.selayer = SELayer(channel)
 
 
     def forward(self, x):
@@ -413,23 +413,23 @@ class MyNet(nn.Module):
         x3 =self.Translayer3(x3)
         x4 =self.Translayer4(x4)
 
-        asm4 =self.asm4(x4,self.down01(x3),self.nocal(x4))
+        asm4 =self.selayer(x4)
 
         d1_4 = self.decoder4(asm4)  # b 320 22 22
-        asm3 =self.asm3(x3,self.down01(x2),d1_4) # 512+320+320
+        asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
 
         d1_3 = self.decoder3(asm3)  # b 128 44 4
-        asm2 = self.asm2(x2,self.down01(x1) ,d1_3)
+        asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
 
         d1_2 = self.decoder2(asm2)  # b 128 88 88
-        asm1 =self.selayer(torch.cat((d1_2,x1),dim=1))
+        asm1 =self.asm1(x1,self.upsample(x2),d1_2)
 
         d1_1 = self.decoder1(asm1)
 
-        out1_1 = self.out1_1(asm1)*x1  # b 64 88 88
-        out1_2 = self.out1_2(asm2)*x2  # b 64 44 44
-        out1_3 = self.out1_3(asm3)*x3  # b 64  22 22
-        out1_4 = self.out1_4(asm4)*x4                                                                                                                                                                      # b 64 11 11
+        out1_1 = self.out1_1(asm1)+x1  # b 64 88 88
+        out1_2 = self.out1_2(asm2)+x2  # b 64 44 44
+        out1_3 = self.out1_3(asm3)+x3  # b 64  22 22
+        out1_4 = self.out1_4(asm4)+x4                                                                                                                                                                      # b 64 11 11
 
 
         pred1 = self.unetout1(d1_1)    # b 64 176 176

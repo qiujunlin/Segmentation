@@ -394,10 +394,10 @@ class MyNet(nn.Module):
 
         # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-        self.decoder3 = DecoderBlock(in_channels=channel*3, out_channels=channel)
-        self.decoder2 = DecoderBlock(in_channels=channel*3, out_channels=channel)
-        self.decoder1 = DecoderBlock(in_channels=channel*3, out_channels=channel)
+        self.decoder4 = DecoderBlock(in_channels=512, out_channels=512)
+        self.decoder3 = DecoderBlock(in_channels=512+320, out_channels=320)
+        self.decoder2 = DecoderBlock(in_channels=320+128, out_channels=128)
+        self.decoder1 = DecoderBlock(in_channels=128+64, out_channels=64)
 
 
         # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
@@ -440,25 +440,26 @@ class MyNet(nn.Module):
         x2 = pvt[1]   # 1 128 44 44
         x3 = pvt[2]   # 1 320 22 22
         x4 = pvt[3]   # 1 512 11 11
-        x1 =self.Translayer1(x1)
-        x2 =self.Translayer2(x2)
-        x3 =self.Translayer3(x3)
-        x4 =self.Translayer4(x4)
+        # x1 =self.Translayer1(x1)
+        # x2 =self.Translayer2(x2)
+        # x3 =self.Translayer3(x3)
+        # x4 =self.Translayer4(x4)
 
        # flusion3 =  self.asm3()
 
 
 
         d1_4 =self.decoder4(x4) # b 320 22 22
-        asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
+        # asm3 =self.asm3(x3,self.upsample(x4),d1_4) # 512+320+320
 
-        d1_3 =self.decoder3(asm3)  # b 128 44 4
-        asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
+        d1_3 =self.decoder3(torch.cat([d1_4,x3],dim=1))  # b 128 44 4
+        # asm2 = self.asmder3(torch.cat([d1_4,x3],dim=1))  # b 128 44 4
+        # asm2 = self.asm2(x2,self.upsample(x3) ,d1_3)
 
-        d1_2 =self.decoder2(asm2)  # b 128 88 88
-        asm1 = self.asm1(self.upsample(x2),x1, d1_2) # b 128 88 88
+        d1_2 =self.decoder2(torch.cat([d1_3,x2],dim=1)) # b 128 88 88
+        asm1 = self.decoder1(torch.cat([d1_2,x1],dim=1)) # b 128 88 88
 
-        d1_1 =self.decoder1(asm1)  # b 64 176 176
+        # d1_1 =self.decoder1(asm1)  # b 64 176 176
 
 
 
@@ -469,7 +470,7 @@ class MyNet(nn.Module):
         # out1_3 = self.out1_3(asm3+x3)    # b  44 44
         # out1_4 = self.out1_4(x4)   # b 64 22 22
 
-        pred1 = self.unetout1(d1_1)    # b 64 176 176
+        pred1 = self.unetout1(asm1)    # b 64 176 176
 
 
        # attention1 = self.bam1(out1_1,self.down01(pred1)) # b 64 88 88

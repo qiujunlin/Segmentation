@@ -359,13 +359,41 @@ def test7():
       print(dataset, ': ', dice)
 def test8():
 
-     for f in os.listdir("E:\dataset\datasetnew\TestDataset/test\masks"):
-         if "CVC-300" in f :
-             path = "E:\dataset\datasetnew\TestDataset/test/masks/" + f
-             os.remove(path)
+     for f in os.listdir(r"E:\dataset\Ultro\TestDataset/test\masks"):
+             path = r"E:\dataset\Ultro\TestDataset/test\masks\\" + f
+             new_name = path.replace("_mask", "")
+             os.rename(path, new_name)
 
 
+def test9():
+    path_ = r'E:\dataset\Ultro\TestDataset/test'
+    path_true = r'E:\dataset\Ultro\TestDataset\test\masks'
+    pathpred = r'E:\dataset\Ultro\TestDataset/test/output'
+    TP = FPN = 0
+    Jaccard = []
+    for file in os.listdir(path_true):
+        #            num=num+1
+        pre_file_path = os.path.join(pathpred, file)
+        true_file_path = os.path.join(path_true, file)
+        img_true = np.array(Image.open(true_file_path).convert("L"))
+        img_true=img_true/255
+        img_pre = Image.open(pre_file_path).convert("L")
+        img_pre == img_pre.resize(img_true.shape)
+        img_pre = np.array(img_pre)
+        img_pre = img_pre/255
+
+       # img_pre = (img_true.shape)
+
+        TP = TP + np.sum(img_pre * img_true)
+        FPN = FPN + np.sum(img_pre) + np.sum(img_true)
+
+    dice = 2 * TP / FPN
+
+    print("DICE", dice)
 if __name__ == '__main__':
-    test8()
+
+    print("ds")
+    test9()
+ # import numpy as np
 
 
