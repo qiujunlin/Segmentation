@@ -355,9 +355,9 @@ class MyNet(nn.Module):
         self.upsample2 = nn.Upsample(scale_factor=16, mode='bilinear', align_corners=True)
         self.upsample3 = nn.Upsample(scale_factor=8, mode='bilinear', align_corners=True)
 
-        self.out1_1 =  BasicConv2d(channel*3, channel, 1)
-        self.out1_2 =  BasicConv2d(channel*3, channel, 1)
-        self.out1_3 =   BasicConv2d(channel*3, channel, 1)
+        self.out1_1 =  BasicConv2d(channel*4, channel, 1)
+        self.out1_2 =  BasicConv2d(channel*4, channel, 1)
+        self.out1_3 =   BasicConv2d(channel*4, channel, 1)
         self.out1_4 =   BasicConv2d(channel, channel, 1)
 
 
@@ -431,12 +431,15 @@ class MyNet(nn.Module):
 
         d1_1 = self.decoder1(asm1)
 
-
-
-        out1_1 = self.selayer1(self.out1_1(torch.cat((asm1,x1),dim=1)))+x1  # b 64 88 88
-        out1_2 = self.selayer2(self.out1_2(torch.cat((asm2,x2),dim=1)))+x2    # b 64 44 44
-        out1_3 = self.selayer3(self.out1_3(torch.cat((asm3,x3),dim=1)))+x3   # b 64  22 22
-        out1_4 = self.selayer4(self.out1_4(x4))+x4                                                                                                                                                                # b 64 11 11
+        # x1_1 = x1  # 32,88, 88
+        guidance = d1_1
+        edge_guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
+        edge_guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
+        edge_guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
+        out1_1 = self.selayer1(self.out1_1(torch.cat((asm1,x1,guidance),dim=1)))  # b 64 88 88
+        out1_2 = self.selayer2(self.out1_2(torch.cat((asm2,x2,edge_guidance3),dim=1)))   # b 64 44 44
+        out1_3 = self.selayer3(self.out1_3(torch.cat((asm3,x3,edge_guidance2),dim=1)))  # b 64  22 22
+        out1_4 = self.selayer4(self.out1_4(torch.cat((x4,edge_guidance1),dim=1)) )                                                                                                                                                           # b 64 11 11
 
 
         pred1 = self.unetout1(d1_1)    # b 64 176 176

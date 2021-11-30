@@ -322,8 +322,7 @@ class COM(nn.Module):
 
         x4_2 = torch.cat((x4_1, self.upsample(x3_2)), 1)
         x4_2 = self.conv_concat4(x4_2)
-        x1 = self.conv4(x4_2)
-        # x1 =self.atte2(x1,self.attention_conv4(edge_guidance3))
+
         return x1
 
 
