@@ -63,6 +63,71 @@ class SpatialAttention(nn.Module):
         return self.sigmoid(x)
 
 
+class _PositionAttentionModule(nn.Module):
+    """ Position attention module"""
+
+    def __init__(self, in_channels):
+        super(_PositionAttentionModule, self).__init__()
+        self.conv_b = nn.Conv2d(in_channels, in_channels, 1)
+        self.conv_c = nn.Conv2d(in_channels, in_channels , 1)
+        self.conv_d = nn.Conv2d(in_channels, in_channels, 1)
+        self.alpha = nn.Parameter(torch.zeros(1))
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        batch_size, _, height, width = x.size()
+        feat_b = self.conv_b(x).view(batch_size, -1, height * width).permute(0, 2, 1)
+        feat_c = self.conv_c(x).view(batch_size, -1, height * width)
+        attention_s = self.softmax(torch.bmm(feat_b, feat_c))
+        feat_d = self.conv_d(x).view(batch_size, -1, height * width)
+        feat_e = torch.bmm(feat_d, attention_s.permute(0, 2, 1)).view(batch_size, -1, height, width)
+        out = self.alpha * feat_e + x
+
+        return out
+
+
+class _ChannelAttentionModule(nn.Module):
+    """Channel attention module"""
+
+    def __init__(self):
+        super(_ChannelAttentionModule, self).__init__()
+        self.beta = nn.Parameter(torch.zeros(1))
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        batch_size, _, height, width = x.size()
+        feat_a = x.view(batch_size, -1, height * width)
+        feat_a_transpose = x.view(batch_size, -1, height * width).permute(0, 2, 1)
+        attention = torch.bmm(feat_a, feat_a_transpose)
+        attention_new = torch.max(attention, dim=-1, keepdim=True)[0].expand_as(attention) - attention
+        attention = self.softmax(attention_new)
+        feat_e = torch.bmm(attention, feat_a).view(batch_size, -1, height, width)
+        out = self.beta * feat_e + x
+
+        return out
+
+
+
+class _DAHead(nn.Module):
+    def __init__(self, in_channels):
+        super(_DAHead, self).__init__()
+        inter_channels = in_channels // 8
+        self.conv_p1 = BasicConv2d(in_channels,inter_channels,1)
+        self.conv_c1 = BasicConv2d(in_channels,inter_channels,1)
+        self.pam = _PositionAttentionModule(inter_channels)
+        self.cam = _ChannelAttentionModule()
+        self.out= BasicConv2d(inter_channels,in_channels,1)
+
+    def forward(self, x):
+        feat_p = self.conv_p1(x)
+        feat_p = self.pam(feat_p)
+        feat_c = self.conv_c1(x)
+        feat_c = self.cam(feat_c)
+        feat_fusion = feat_p + feat_c
+        feat_fusion =self.out(feat_fusion)
+
+        return feat_fusion
+
 class BCA(nn.Module):
     def   __init__(self, xin_channels, yin_channels, mid_channels, BatchNorm=nn.BatchNorm2d, scale=False):
         super(BCA, self).__init__()
@@ -99,8 +164,15 @@ class BCA(nn.Module):
         self.scale = scale
         nn.init.constant_(self.f_up[1].weight, 0)
         nn.init.constant_(self.f_up[1].bias, 0)
+        self.down = nn.Upsample(scale_factor=1 / 2, mode='bilinear', align_corners=True)
+        self.up = nn.Upsample(scale_factor= 2, mode='bilinear', align_corners=True)
+
+
 
     def forward(self, x, y):
+        xor = x
+        x = self.down(x)
+        y = self.down(y)
         batch_size = x.size(0)
         fself = self.f_self(x).view(batch_size, self.mid_channels, -1)
         fself = fself.permute(0, 2, 1)
@@ -115,7 +187,7 @@ class BCA(nn.Module):
         fout = fout.permute(0, 2, 1).contiguous()
         fout = fout.view(batch_size, self.mid_channels, *x.size()[2:])
         out = self.f_up(fout)
-        return x + out
+        return xor + self.up(out)
 class DecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels,
                  kernel_size=3, stride=1, padding=1):
@@ -257,17 +329,9 @@ class COM(nn.Module):
     def __init__(self, channel):
         super(COM, self).__init__()
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.conv_upsample1 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample2 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample3 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample4 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample5 = BasicConv2d(2 * channel, 2 * channel, 3, padding=1)
-        self.conv_upsample6 = BasicConv2d(3 * channel, 3 * channel, 3, padding=1)
 
-        self.conv_concat2 = BasicConv2d(2 * channel, channel, 3, padding=1)
-        self.conv_concat3 = BasicConv2d(2 * channel, channel, 3, padding=1)
-        self.conv_concat4 = BasicConv2d(2* channel,  channel, 3, padding=1)  # 最大 64*4 = 256 不大
-        self.conv4 = BasicConv2d(3 * channel, channel, 3, padding=1)
+
+
 
         # # attention
         self.attention_conv2= BasicConv2d(channel,channel,1)
@@ -280,50 +344,50 @@ class COM(nn.Module):
 
 
         self.conv4 = BasicConv2d(channel, channel, 3, padding=1)
+        self.flu1 =  nn.Sequential(
+            BasicConv2d(channel + 3,channel*2,1),
+            BasicConv2d(channel*2,channel,1)
+        )
+        self.flu2 =  nn.Sequential(
+            BasicConv2d(channel*2 + 3,channel*2,1),
+            BasicConv2d(channel*2,channel*2,1),
+            BasicConv2d(channel*2,channel,1),
+        )
+        self.flu3 = nn.Sequential(
+            BasicConv2d(channel * 2 , channel * 2, 1),
+            BasicConv2d(channel * 2, channel, 1),
+        )
+        self.down = nn.Upsample(scale_factor=1 / 2, mode='bilinear', align_corners=True)
+        self.down01 = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
+        self.down02 = nn.Upsample(scale_factor=1/8, mode='bilinear', align_corners=True)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
-    def forward(self, x1, x2, x3,x4,guidance):
 
-        """
-        edge_guidance  -> x1 bs 32 88 88
-        x1 -> x4   bs 32 11 11
-        x2 -> x3  bs  32 22 22
-        x3 -> x2  bs  32 44 44
+    def forward(self, x, x1,x2):
 
-        1. 先进行downSample 然后cat
-        2. 然后卷积之后相乘
+        down1 = self.down01(x) # b c 88 88
+        down2 = self.down02(x) # b c 44 44
+
+        #upx2 = self.upsample(upx2)
 
 
-        1. edge_guidance1和x1 拼接  然后conv
-        2. edge_guidance2和x2 拼接  然后conv 然和和 第一步结果相乘
-        3. edge_guidance3和x3 拼接  然后conv  然后和第二部结果相乘
-        """
+        fluh1 = torch.cat((down1, x1), dim=1)
+        fluh1 = self.flu1(fluh1)
+        fluh2 = torch.cat((self.down(fluh1), down2, x2), dim=1)
+        fluh2 = self.flu2(fluh2)
 
-        # x1_1 = x1  # 32,88, 88
-        edge_guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
-        edge_guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
-        edge_guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
-        # x1 =self.atte4(x1,self.attention_conv2(edge_guidance1))
-        # x2 =self.atte3(x2,self.attention_conv3(edge_guidance2))
-        # x3 =self.atte2(x3,self.attention_conv4(edge_guidance3))
-        x1 = x1 + edge_guidance1
-        x2 = x2 + edge_guidance2
-        x3 = x3 + edge_guidance3
-        x4 = x4 + guidance
-        x1_1 = x1
-        x2_1 = self.upsample(x1) * x2
-        x3_1 = self.upsample(x2) * x3
-        x4_1 = self.upsample(x3) * x4
+        up1 = self.up(fluh2)
+        out =torch.cat((up1,x1),dim=1)
+        out =  self.flu3(out)
 
-        x2_2 = torch.cat((x2_1, self.upsample(x1_1)), 1)
-        x2_2 = self.conv_concat2(x2_2)
 
-        x3_2 = torch.cat((x3_1, self.upsample(x2_2)), 1)
-        x3_2 = self.conv_concat3(x3_2)
 
-        x4_2 = torch.cat((x4_1, self.upsample(x3_2)), 1)
-        x4_2 = self.conv_concat4(x4_2)
 
-        return x1
+
+
+
+
+        return out
 
 
 class MyNet(nn.Module):
@@ -342,8 +406,11 @@ class MyNet(nn.Module):
         self.Translayer2 = BasicConv2d(128, channel, 1)
         self.Translayer3 = BasicConv2d(320, channel, 1)
         self.Translayer4 = BasicConv2d(512, channel, 1)
+        self.Translayerup1 = BasicConv2d(64 ,channel, 1)
+        self.Translayerup2 = BasicConv2d(128, channel, 1)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.downsample = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
 
         self.down01 = nn.Upsample(scale_factor=1 / 2, mode='bilinear', align_corners=True)
         self.down02 = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
@@ -364,16 +431,9 @@ class MyNet(nn.Module):
         self.refine = RefineUNet(1,1)
 
         self.ca1 = ChannelAttention(channel)
-        self.ca2 = ChannelAttention(channel)
-        self.ca3 = ChannelAttention(channel)
-        self.ca4 = ChannelAttention(channel)
-        self.sa1= SpatialAttention()
-        self.sa2= SpatialAttention()
-        self.sa3= SpatialAttention()
         self.sa4= SpatialAttention()
         self.outatte = nn.Conv2d(channel, channel, 1)
 
-        # Decoder
        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
         self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
         self.decoder3 = DecoderBlock(in_channels=channel*2, out_channels=channel)
@@ -389,21 +449,25 @@ class MyNet(nn.Module):
         self.decoder2_1 = DecoderBlock(in_channels=channel*2, out_channels=channel)
 
 
-        # adaptive selection module
-        self.asm4 = ASM(channel, channel*3)
-        self.asm3 = ASM(channel, channel*3)
-        self.asm2 = ASM(channel, channel*3)
-        self.asm1 = ASM(channel, channel*3)
+
 
         self.unetout1 =  nn.Conv2d(channel, 1, 1)
         self.unetout2 =  nn.Conv2d(channel, 1, 1)
+        self.com =COM(channel)
 
 
-        self.COM =COM(channel)
         self.cobv1 =BasicConv2d(3*channel,channel,1)
         self.cobv2 =BasicConv2d(3*channel,channel,1)
         self.nocal = NonLocalBlock(channel)
         self.selayer = SELayer(channel)
+        self.upconv1 =BasicConv2d(channel,channel,1)
+
+        self.noncal = BCA(channel, channel, 16)
+        self.duatt =_DAHead(channel)
+        self.ca = ChannelAttention(channel)
+        self.sa = SpatialAttention()
+
+
 
 
     def forward(self, x):
@@ -413,62 +477,47 @@ class MyNet(nn.Module):
         x2 = pvt[1]   # 1 128 44 44
         x3 = pvt[2]   # 1 320 22 22
         x4 = pvt[3]   # 1 512 11 11
-        x1 =self.Translayer1(x1)
-        x2 =self.Translayer2(x2)
-        x3 =self.Translayer3(x3)
-        x4 =self.Translayer4(x4)
+        xu1 =self.Translayer1(x1)
+        xu2 =self.Translayer2(x2)
+        xu3 =self.Translayer3(x3)
+        xu4 =self.Translayer4(x4)
+        upx1 =self.Translayerup1(x1)
+        upx2 =self.Translayerup2(x2)
 
-        d1_4 = self.decoder4(x4)  # b 320 22 22
+        d1_4 = self.decoder4(xu4)  # b 320 22 22
 
-        u3 =torch.cat((d1_4,x3),dim=1)
+        u3 =torch.cat((d1_4,xu3),dim=1)
         d1_3 = self.decoder3(u3)  # b 128 44 4
-        u2 = torch.cat((d1_3,x2),dim=1)
+        u2 = torch.cat((d1_3,xu2),dim=1)
         d1_2 = self.decoder2(u2)  # b 128 88 88
-        u1 =torch.cat((d1_2,x1),dim=1)
+        u1 =torch.cat((d1_2,xu1),dim=1)
         d1_1 = self.decoder1(u1)
 
                                                                                                                                                                        # b 64 11 11
-
-
         pred1 = self.unetout1(d1_1)    # b 64 176 176
-        guidance =d1_1
-        edge_guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
-        edge_guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
-        edge_guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
-
-        out1_1 = self.out1_1(u1)
-        out1_2 = self.out1_2(u2)
-        out1_3 = self.out1_3(u3)
-        out1_4 = self.out1_4(x4)
-
-        out1_1 = self.ca1(out1_1) * out1_1  # channel attention
-        out1_1 = self.sa1(out1_1) * out1_1 +guidance # spatial attention
-
-        out1_2 = self.ca2(out1_2) * out1_2  # channel attention
-        out1_2 = self.sa2(out1_2) * out1_2 +edge_guidance3 # spatial attention
-
-        out1_3 = self.ca3(out1_3) * out1_3  # channel attention
-        out1_3 = self.sa3(out1_3) * out1_3+edge_guidance2  # spatial attention
-
-        out1_4 = self.ca4(out1_4) * out1_4  # channel attention
-        out1_4 = self.sa4(out1_4) * out1_4 +edge_guidance1 # spatial attention
-
-
-        d2_4 = self.decoder2_4(out1_4)
-        u2_3 = torch.cat((d2_4, out1_3), dim=1)
-        d2_3 = self.decoder2_3(u2_3)  # b 128 44 4
-        u2_2 = torch.cat((d2_3, out1_2), dim=1)
-        d2_2 = self.decoder2_3(u2_2)  # b 128 88 88
-        u2_1 = torch.cat((d2_2, out1_1), dim=1)
-        d2_1 = self.decoder2_1(u2_1)
 
 
 
 
-        pred2 =self.unetout2(d2_1)
 
-        pred2 = F.interpolate(pred2,scale_factor=2,mode='bilinear')
+        out2 = self.com(x,upx1,upx2)
+
+
+        att1 =d1_1
+
+        # CIM
+        out2 = self.ca(out2) * out2  # channel attention
+        out2 = self.sa(out2) * out2  # spatial attention
+
+
+        out2 =  self.noncal(att1,out2)
+
+
+        pred2 =self.unetout2(out2)
+
+        pred2 = F.interpolate(pred2,scale_factor=4,mode='bilinear')
         pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
+
 
         return pred1,pred2
 

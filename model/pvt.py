@@ -90,7 +90,7 @@ class SAM(nn.Module):
     def forward(self, x, edge):
         edge = F.upsample(edge, (x.size()[-2], x.size()[-1]))
 
-        n, c, h, w = x.size()
+        n, c, h, w = x.size() #torch.Size([1, 32, 44, 44])
         edge = torch.nn.functional.softmax(edge, dim=1)[:, 1, :, :].unsqueeze(1)
 
         x_state_reshaped = self.conv_state(x).view(n, self.num_s, -1)
