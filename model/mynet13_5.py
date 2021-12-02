@@ -23,7 +23,6 @@ class BasicConv2d(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
-
         return x
 
 class ChannelAttention(nn.Module):
@@ -117,14 +116,18 @@ class _DAHead(nn.Module):
         self.pam = _PositionAttentionModule(inter_channels)
         self.cam = _ChannelAttentionModule()
         self.out= BasicConv2d(inter_channels,in_channels,1)
+        self.down = nn.Upsample(scale_factor=1 / 2, mode='bilinear', align_corners=True)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
     def forward(self, x):
+        x =self.down(x)
         feat_p = self.conv_p1(x)
         feat_p = self.pam(feat_p)
         feat_c = self.conv_c1(x)
         feat_c = self.cam(feat_c)
         feat_fusion = feat_p + feat_c
         feat_fusion =self.out(feat_fusion)
+        feat_fusion = self.up(feat_fusion)
 
         return feat_fusion
 
@@ -398,8 +401,8 @@ class MyNet(nn.Module):
         self.Translayer2 = BasicConv2d(128, channel, 1)
         self.Translayer3 = BasicConv2d(320, channel, 1)
         self.Translayer4 = BasicConv2d(512, channel, 1)
-        self.Translayerup1 = BasicConv2d(64 ,channel*2, 1)
-        self.Translayerup2 = BasicConv2d(512, channel*2, 1)
+        self.Translayerup1 = BasicConv2d(64 ,channel, 1)
+        self.Translayerup2 = BasicConv2d(512, channel, 1)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.downsample = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
@@ -445,8 +448,8 @@ class MyNet(nn.Module):
 
         self.unetout1 =  nn.Conv2d(channel, 1, 1)
         self.unetout2 =  nn.Conv2d(channel, 1, 1)
-        self.detailout =  nn.Conv2d(channel*2, 1, 1)
-        self.com =COM(channel*2)
+        self.detailout =  nn.Conv2d(channel, 1, 1)
+        self.com =COM(channel)
 
 
         self.cobv1 =BasicConv2d(3*channel,channel,1)
@@ -457,7 +460,7 @@ class MyNet(nn.Module):
 
         self.noncal = BCA(channel, channel, 16)
         self.duatt =_DAHead(channel)
-        self.ca = ChannelAttention(channel*2)
+        self.ca = ChannelAttention(channel)
         self.sa = SpatialAttention()
 
         self.conv = nn.Sequential(
@@ -465,7 +468,7 @@ class MyNet(nn.Module):
             BasicConv2d(channel*2,channel,1)
         )
         self.edgeconv =BasicConv2d(channel,channel,1)
-        self.downconv =BasicConv2d(channel*2,channel,1)
+        self.downconv =BasicConv2d(channel,channel,1)
 
 
 
@@ -488,7 +491,7 @@ class MyNet(nn.Module):
         xu3 = self.upsample(xu4)*xu3
         xu2 = self.upsample(xu3)*xu2
         xu1 = self.upsample(xu2)*xu1
-        #decoder 1
+        #decoder1
         d1_4 = self.decoder4(xu4)  # b 320 22 22
 
         u3 =torch.cat((d1_4,xu3),dim=1)
@@ -498,20 +501,18 @@ class MyNet(nn.Module):
         u1 =torch.cat((d1_2,xu1),dim=1)
         d1_1 = self.decoder1(u1)
 
-        # flusion
+        #flusion
         outflu = self.com(x,upx1,upx2) # h w
-        # CIM
+        # spitial and channel
         outflu = self.ca(outflu) * outflu  # channel attention
         outflu = self.sa(outflu) * outflu  # spatial attention
-
+        #
         att1 =d1_1
-
         att2 = self.downconv(outflu)
         out2 = self.noncal(att1,att2)
 
+        # out
         detailout = self.detailout(outflu)
-
-        #out
         pred1 = self.unetout1(d1_1)  #b 64 176 176
         pred2 =self.unetout2(out2)
         pred2 = F.interpolate(pred2,scale_factor=4,mode='bilinear')
@@ -529,12 +530,3 @@ if __name__ == '__main__':
     print(pred2.size())
     print(pred1.size())
     print(edgeout.size())
-    # print(prediction1.size())
-    # print(prediction2.size())
-    # print(prediction3.size())
-    # print(prediction4.size())
-
-    # net =BCA(64,64,64)
-    # a =torch.rand(1,64,44,44)
-    # b =torch.rand(1,64,44,44)
-    # print(net(a,b).size())

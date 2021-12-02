@@ -390,10 +390,25 @@ def test9():
     dice = 2 * TP / FPN
 
     print("DICE", dice)
+def test10():
+    seed = np.random.randint(2147483647)  # make a seed with numpy generator
+    random.seed(seed)  # apply this seed to img tranfsorms
+    torch.manual_seed(seed)  # needed for torchvision 0.7
+    print(torch.rand(2,2))
+    print(torch.rand(2,2))
+
+
+    random.seed(seed)  # apply this seed to img tranfsorms
+    torch.manual_seed(seed)  # needed for torchvision 0.7
+    print(torch.rand(2, 2))
+    print(torch.rand(2, 2))
+
+
+
 if __name__ == '__main__':
 
     print("ds")
-    test9()
+    test10()
  # import numpy as np
 
 

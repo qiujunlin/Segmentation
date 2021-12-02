@@ -503,16 +503,21 @@ class MyNet(nn.Module):
         d1_1 = self.decoder1(u1)
 
         # flusion
-        out2 = self.com(x,upx1)
+        out2 = self.com(x, upx1, upx2)
+        att1 = d1_1
 
+        # channel and sptial
+        out2 = self.ca(out2) * out2  # channel attention
+        out2 = self.sa(out2) * out2  # spatial attention
+        # attention
+        # out2 =  self.noncal(att1,out2)
 
-        #out
-        pred1 = self.unetout1(d1_1)  #b 64 176 176
-        pred2 =self.unetout2(out2)
-        pred2 = F.interpolate(pred2,scale_factor=4,mode='bilinear')
+        out2 = self.conv(torch.cat((d1_1, out2), dim=1))
+        # out
+        pred1 = self.unetout1(d1_1)  # b 64 176 176
+        pred2 = self.unetout2(out2)
+        pred2 = F.interpolate(pred2, scale_factor=4, mode='bilinear')
         pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
-
-
 
         return pred1,pred2
 

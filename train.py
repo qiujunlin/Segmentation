@@ -31,7 +31,7 @@ from torch.autograd import Variable
 
 from dataset.Dataset import Dataset
 
-from  model.mynet13_5 import MyNet
+from  model.mynet13_9 import MyNet
 
 
 
@@ -53,7 +53,7 @@ def valid(model, dataset,args):
             gt = np.asarray(gt, np.float32)
             gt /= (gt.max() + 1e-8)
             image = image.cuda()
-            prediction1, prediction2,_ = model(image)
+            prediction1, prediction2= model(image)
             # eval Dice
             res = F.upsample(prediction1+prediction2 , size=gt.shape[2:], mode='bilinear', align_corners=False)
             res = res.sigmoid().data.cpu().numpy().squeeze()
@@ -112,13 +112,13 @@ def train(args, model, optimizer,dataloader_train,total):
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                prediction1, prediction2,detail =model(data)
+                prediction1, prediction2 =model(data)
 
                 """
                 计算损失函数
                 """
 
-                loss = u.bce_dice(prediction1,label)+u.bce_dice(prediction2,label)+u.structure_loss(detail,label)
+                loss = u.bce_dice(prediction1,label)+u.bce_dice(prediction2,label)
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)

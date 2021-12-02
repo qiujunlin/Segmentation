@@ -328,7 +328,7 @@ class SideoutBlock(nn.Module):
 class COM(nn.Module):
     def __init__(self, channel):
         super(COM, self).__init__()
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
 
 
 
@@ -361,43 +361,75 @@ class COM(nn.Module):
         self.down = nn.Upsample(scale_factor=1 / 2, mode='bilinear', align_corners=True)
         self.down01 = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
         self.down02 = nn.Upsample(scale_factor=1/8, mode='bilinear', align_corners=True)
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.upsample1 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.upsample2 = nn.Upsample(scale_factor=32, mode='bilinear', align_corners=True)
 
 
     def forward(self, x, x1,x2):
+      #  down1 = self.down01(x)  # b c 88 88
+        #down2 = self.down02(x)  # b c 44 44
+        x =self.down01(x)
 
-        x = self.down01(x) # b c 88 88
-
-
+        x2 = self.upsample1(x2)
         fluh1 = torch.cat((x, x1), dim=1)
         fluh1 = self.flu1(fluh1)
-        fluh2 = torch.cat((fluh1, self.upsample(x2), x), dim=1)
+        fluh2 = torch.cat((fluh1,x,x2), dim=1)
         fluh2 = self.flu2(fluh2)
-#        up1 = self.up(fluh2)
-        out =torch.cat((fluh2,x1,x),dim=1)
-        out =  self.flu3(out)
+        fluh3 = torch.cat((fluh2, x1,x), dim=1)
+
+        out = self.flu3(fluh3)
 
         return out
+class RFB_modified(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(RFB_modified, self).__init__()
+        self.relu = nn.ReLU(True)
+        self.branch0 = nn.Sequential(
+            BasicConv2d(in_channel, out_channel, 1),
+        )
+        self.branch1 = nn.Sequential(
+            BasicConv2d(in_channel, out_channel, 1),
+            BasicConv2d(out_channel, out_channel, kernel_size=(1, 3), padding=(0, 1)),
+            BasicConv2d(out_channel, out_channel, kernel_size=(3, 1), padding=(1, 0)),
+            BasicConv2d(out_channel, out_channel, 3, padding=3, dilation=3)
+        )
+        self.branch2 = nn.Sequential(
+            BasicConv2d(in_channel, out_channel, 1),
+            BasicConv2d(out_channel, out_channel, kernel_size=(1, 5), padding=(0, 2)),
+            BasicConv2d(out_channel, out_channel, kernel_size=(5, 1), padding=(2, 0)),
+            BasicConv2d(out_channel, out_channel, 3, padding=5, dilation=5)
+        )
+        self.branch3 = nn.Sequential(
+            BasicConv2d(in_channel, out_channel, 1),
+            BasicConv2d(out_channel, out_channel, kernel_size=(1, 7), padding=(0, 3)),
+            BasicConv2d(out_channel, out_channel, kernel_size=(7, 1), padding=(3, 0)),
+            BasicConv2d(out_channel, out_channel, 3, padding=7, dilation=7)
+        )
+        self.conv_cat = BasicConv2d(4*out_channel, out_channel, 3, padding=1)
+        self.conv_res = BasicConv2d(in_channel, out_channel, 1)
 
+    def forward(self, x):
+        x0 = self.branch0(x)
+        x1 = self.branch1(x)
+        x2 = self.branch2(x)
+        x3 = self.branch3(x)
+        x_cat = self.conv_cat(torch.cat((x0, x1, x2, x3), 1))
+
+        x = self.relu(x_cat + self.conv_res(x))
+        return x
 
 class MyNet(nn.Module):
-    def __init__(self, channel=32):
+    def __init__(self, channel=64):
         super(MyNet, self).__init__()
 
-        self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]
-        path = 'F:\pretrain\pvt_v2_b3.pth'
-        save_model = torch.load(path)
-        model_dict = self.backbone.state_dict()
-        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        model_dict.update(state_dict)
-        self.backbone.load_state_dict(model_dict)
+        self.resnet = res2net50_v1b_26w_4s(pretrained=True)
 
         self.Translayer1= BasicConv2d(64, channel, 1)
         self.Translayer2 = BasicConv2d(128, channel, 1)
         self.Translayer3 = BasicConv2d(320, channel, 1)
         self.Translayer4 = BasicConv2d(512, channel, 1)
-        self.Translayerup1 = BasicConv2d(64 ,channel, 1)
-        self.Translayerup2 = BasicConv2d(128, channel, 1)
+        self.Translayerup1 = BasicConv2d(256 ,channel, 1)
+        self.Translayerup2 = BasicConv2d(512, channel, 1)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.downsample = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
@@ -443,6 +475,7 @@ class MyNet(nn.Module):
 
         self.unetout1 =  nn.Conv2d(channel, 1, 1)
         self.unetout2 =  nn.Conv2d(channel, 1, 1)
+        self.detailout =  nn.Conv2d(channel*2, 1, 1)
         self.com =COM(channel)
 
 
@@ -457,23 +490,50 @@ class MyNet(nn.Module):
         self.ca = ChannelAttention(channel)
         self.sa = SpatialAttention()
 
+        self.conv = nn.Sequential(
+            BasicConv2d(channel*2,channel*2,1),
+            BasicConv2d(channel*2,channel,1)
+        )
+        self.edgeconv =BasicConv2d(channel,channel,1)
+        self.downconv =BasicConv2d(channel,channel,1)
+        self.rfb2_1 = RFB_modified(512, channel)
+        self.rfb1_1 = RFB_modified(256, channel)
+        self.rfb3_1 = RFB_modified(1024, channel)
+        self.rfb4_1 = RFB_modified(2048, channel)
+
+
 
 
 
     def forward(self, x):
-        # backbone
-        pvt = self.backbone(x)
-        x1 = pvt[0]   # 1 64 88 88
-        x2 = pvt[1]   # 1 128 44 44
-        x3 = pvt[2]   # 1 320 22 22
-        x4 = pvt[3]   # 1 512 11 11
-        xu1 =self.Translayer1(x1)
-        xu2 =self.Translayer2(x2)
-        xu3 =self.Translayer3(x3)
-        xu4 =self.Translayer4(x4)
+        basic = x
+        x = self.resnet.conv1(x)
+        x = self.resnet.bn1(x)
+        x = self.resnet.relu(x)
+
+        # ---- low-level features ----
+        x = self.resnet.maxpool(x)  # bs, 64, 88, 88
+        x1 = self.resnet.layer1(x)  # bs, 256, 88, 88
+
+        # ---- high-level features ----
+        x2 = self.resnet.layer2(x1)  # bs, 512, 44, 44
+        x3 = self.resnet.layer3(x2)  # bs, 1024, 22, 22
+        x4 = self.resnet.layer4(x3)  # bs, 2048, 11, 11
+        #
+        xu1 =self.rfb1_1(x1)
+        xu2 =self.rfb2_1(x2)
+        xu3 =self.rfb3_1(x3)
+        xu4 =self.rfb4_1(x4)
+
+
         upx1 =self.Translayerup1(x1)
         upx2 =self.Translayerup2(x2)
 
+        #mutipul
+        xu3 = self.upsample(xu4)*xu3
+        xu2 = self.upsample(xu3)*xu2
+        xu1 = self.upsample(xu2)*xu1
+        #decoder 1
         d1_4 = self.decoder4(xu4)  # b 320 22 22
 
         u3 =torch.cat((d1_4,xu3),dim=1)
@@ -483,30 +543,28 @@ class MyNet(nn.Module):
         u1 =torch.cat((d1_2,xu1),dim=1)
         d1_1 = self.decoder1(u1)
 
-                                                                                                                                                                       # b 64 11 11
-        pred1 = self.unetout1(d1_1)    # b 64 176 176
-
-
-
-
-
-        out2 = self.com(x,upx1,upx2)
-
-        att1 =d1_1
-
+        # flusion
+        outflu = self.com(basic,upx1,upx2) # h w
         # CIM
-        out2 = self.ca(out2) * out2  # channel attention
-        out2 = self.sa(out2) * out2  # spatial attention
+        outflu = self.ca(outflu) * outflu  # channel attention
+        outflu = self.sa(outflu) * outflu  # spatial attention
 
 
-        out2 =  self.noncal(att1,out2)
+
+        att1 = d1_1
+        att2 = self.downconv(outflu)
+        out2 = self.noncal(att1,att2)
+       # out2 = self.conv(torch.cat((d1_1, outflu), dim=1))
+
+    #   detailout = self.detailout(outflu)
 
 
+        #out
+        pred1 = self.unetout1(d1_1)  #b 64 176 176
         pred2 =self.unetout2(out2)
-
         pred2 = F.interpolate(pred2,scale_factor=4,mode='bilinear')
         pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
-
+       # detailout = F.interpolate(detailout, scale_factor=4, mode='bilinear')
 
         return pred1,pred2
 
@@ -518,6 +576,7 @@ if __name__ == '__main__':
     pred2,pred1= model(input_tensor)
     print(pred2.size())
     print(pred1.size())
+ #   print(edgeout.size())
     # print(prediction1.size())
     # print(prediction2.size())
     # print(prediction3.size())

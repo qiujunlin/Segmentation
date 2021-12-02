@@ -398,8 +398,8 @@ class MyNet(nn.Module):
         self.Translayer2 = BasicConv2d(128, channel, 1)
         self.Translayer3 = BasicConv2d(320, channel, 1)
         self.Translayer4 = BasicConv2d(512, channel, 1)
-        self.Translayerup1 = BasicConv2d(64 ,channel*2, 1)
-        self.Translayerup2 = BasicConv2d(512, channel*2, 1)
+        self.Translayerup1 = BasicConv2d(64 ,channel, 1)
+        self.Translayerup2 = BasicConv2d(512, channel, 1)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.downsample = nn.Upsample(scale_factor=1/4, mode='bilinear', align_corners=True)
@@ -446,7 +446,7 @@ class MyNet(nn.Module):
         self.unetout1 =  nn.Conv2d(channel, 1, 1)
         self.unetout2 =  nn.Conv2d(channel, 1, 1)
         self.detailout =  nn.Conv2d(channel*2, 1, 1)
-        self.com =COM(channel*2)
+        self.com =COM(channel)
 
 
         self.cobv1 =BasicConv2d(3*channel,channel,1)
@@ -457,7 +457,7 @@ class MyNet(nn.Module):
 
         self.noncal = BCA(channel, channel, 16)
         self.duatt =_DAHead(channel)
-        self.ca = ChannelAttention(channel*2)
+        self.ca = ChannelAttention(channel)
         self.sa = SpatialAttention()
 
         self.conv = nn.Sequential(
@@ -504,12 +504,14 @@ class MyNet(nn.Module):
         outflu = self.ca(outflu) * outflu  # channel attention
         outflu = self.sa(outflu) * outflu  # spatial attention
 
-        att1 =d1_1
+
 
         att2 = self.downconv(outflu)
-        out2 = self.noncal(att1,att2)
+       # out2 = self.noncal(att1,att2)
+        out2 = self.conv(torch.cat((d1_1, att2), dim=1))
 
         detailout = self.detailout(outflu)
+
 
         #out
         pred1 = self.unetout1(d1_1)  #b 64 176 176
