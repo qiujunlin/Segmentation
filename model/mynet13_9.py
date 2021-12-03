@@ -354,7 +354,7 @@ class COM(nn.Module):
             BasicConv2d(channel*2,channel,1),
         )
         self.flu3 = nn.Sequential(
-            BasicConv2d(channel * 2+3 , channel * 2, 1),
+            BasicConv2d(channel * 2 , channel * 2, 1),
             BasicConv2d(channel * 2 , channel * 2, 1),
             BasicConv2d(channel * 2, channel, 1),
         )
@@ -375,8 +375,7 @@ class COM(nn.Module):
         fluh1 = self.flu1(fluh1)
         fluh2 = torch.cat((fluh1,x,x2), dim=1)
         fluh2 = self.flu2(fluh2)
-        fluh3 = torch.cat((fluh2, x1,x), dim=1)
-
+        fluh3 = torch.cat((fluh2, x1), dim=1)
         out = self.flu3(fluh3)
 
         return out

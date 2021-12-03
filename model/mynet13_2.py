@@ -355,6 +355,7 @@ class COM(nn.Module):
         )
         self.flu3 = nn.Sequential(
             BasicConv2d(channel * 2 , channel * 2, 1),
+            BasicConv2d(channel * 2 , channel * 2, 1),
             BasicConv2d(channel * 2, channel, 1),
         )
         self.down = nn.Upsample(scale_factor=1 / 2, mode='bilinear', align_corners=True)
@@ -497,9 +498,8 @@ class MyNet(nn.Module):
 
         # flusion
         out2 = self.com(x,upx1,upx2)
+
         att1 =d1_1
-
-
         #attention
         out2 =  self.noncal(att1,out2)
 

@@ -92,7 +92,6 @@ def train(args, model, optimizer,dataloader_train,total):
         for i, (data, label,edgs) in enumerate(dataloader_train, start=1):
             for rate in size_rates:
 
-
                 #dataprepare
                 if torch.cuda.is_available() and args.use_gpu:
                     data = Variable(data).cuda()

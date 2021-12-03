@@ -152,16 +152,18 @@ class MyNet(nn.Module):
         edge_guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
         edge_guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
         edge_guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
-        x4 = x4 + edge_guidance1
-        x3 = x3 + edge_guidance2
-        x2 = x2 + edge_guidance3
-        x1 = x1 + guidance
+
         x4_1 =x4
 
         # decoder 2
         x3_1 = self.upsample(x4) * x3
         x2_1 = self.upsample(x3) * x2
         x1_1 = self.upsample(x2) * x1
+
+        x3_1 = x3_1 + edge_guidance2
+        x2_1 = x2_1 + edge_guidance3
+        x4_1 = x4_1 + edge_guidance1
+
         x3_2 = torch.cat((x3_1, self.upsample(x4_1)), 1)
         x3_2 = self.conv_concat2(x3_2)
         x2_2 = torch.cat((x2_1, self.upsample(x3_2)), 1)

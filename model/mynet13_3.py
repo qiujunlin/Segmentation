@@ -363,7 +363,7 @@ class COM(nn.Module):
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
 
-    def forward(self, x, x1):
+    def forward(self, x, x1,x2):
 
         down1 = self.down01(x) # b c 88 88
         down2 = self.down02(x) # b c 44 44
@@ -371,7 +371,7 @@ class COM(nn.Module):
 
         fluh1 = torch.cat((down1, x1), dim=1)
         fluh1 = self.flu1(fluh1)
-        fluh2 = torch.cat((fluh1, down2),dim=1)
+        fluh2 = torch.cat((self.down(fluh1), down2,x2),dim=1)
         fluh2 = self.flu2(fluh2)
         up1 = self.up(fluh2)
         out =torch.cat((up1,x1),dim=1)
@@ -489,9 +489,9 @@ class MyNet(nn.Module):
         upx2 =self.Translayerup2(x2)
 
         #mutipul
-        xu3 = self.upsample(xu4)*xu3
-        xu2 = self.upsample(xu3)*xu2
-        xu1 = self.upsample(xu2)*xu1
+        # xu3 = self.upsample(xu4)*xu3
+        # xu2 = self.upsample(xu3)*xu2
+        # xu1 = self.upsample(xu2)*xu1
         #decoder 1
         d1_4 = self.decoder4(xu4)  # b 320 22 22
 
@@ -510,9 +510,9 @@ class MyNet(nn.Module):
         out2 = self.ca(out2) * out2  # channel attention
         out2 = self.sa(out2) * out2  # spatial attention
         # attention
-        # out2 =  self.noncal(att1,out2)
+        out2 =  self.noncal(att1,out2)
 
-        out2 = self.conv(torch.cat((d1_1, out2), dim=1))
+       # out2 = self.conv(torch.cat((d1_1, out2), dim=1))
         # out
         pred1 = self.unetout1(d1_1)  # b 64 176 176
         pred2 = self.unetout2(out2)
@@ -526,10 +526,10 @@ if __name__ == '__main__':
     model = MyNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    pred2,pred1,edgeout= model(input_tensor)
+    pred2,pred1= model(input_tensor)
     print(pred2.size())
     print(pred1.size())
-    print(edgeout.size())
+
     # print(prediction1.size())
     # print(prediction2.size())
     # print(prediction3.size())

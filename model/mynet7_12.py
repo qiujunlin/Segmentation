@@ -360,12 +360,6 @@ class MyNet(nn.Module):
         self.out1_3 =   BasicConv2d(channel*3, channel, 1)
         self.out1_4 =   BasicConv2d(channel*3, channel, 1)
 
-
-        self.refineconv =  BasicConv2d(3, 1, 1)
-        self.refine = RefineUNet(1,1)
-
-        self.ca = ChannelAttention(channel)
-        self.sa = SpatialAttention()
         self.outatte = nn.Conv2d(channel, channel, 1)
 
         # Decoder
