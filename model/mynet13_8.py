@@ -188,6 +188,7 @@ class BCA(nn.Module):
         fout = fout.view(batch_size, self.mid_channels, *x.size()[2:])
         out = self.f_up(fout)
         return xor + self.up(out)
+
 class DecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels,down = True):
         super(DecoderBlock, self).__init__()
@@ -213,6 +214,26 @@ class EncooderBlock(nn.Module):
         x = self.conv2(x)
 
         return x
+
+
+class att_module(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(att_module, self).__init__()
+        self.att_conv = nn.Sequential(
+            BasicConv2d(in_channels, in_channels,1),
+            BasicConv2d(in_channels, in_channels,1),
+            nn.Sigmoid()
+        )
+        self.conv = BasicConv2d(in_channels,out_channels,1)
+
+
+    def forward(self, x):
+        y=x
+        att_mask = self.att_conv(y)
+        y = att_mask * y
+        y = self.conv(y)
+        return y
+
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
         super(SELayer, self).__init__()
@@ -229,24 +250,6 @@ class SELayer(nn.Module):
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
-
-
-class SideoutBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
-        super(SideoutBlock, self).__init__()
-
-        self.conv1 = BasicConv2d(in_channels, in_channels // 4, kernel_size=kernel_size,
-                               stride=stride, padding=padding)
-
-        self.dropout = nn.Dropout2d(0.1)
-
-        self.conv2 = nn.Conv2d(in_channels // 4, out_channels, 1)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.dropout(x)
-        x = self.conv2(x)
-        return x
 
 
 
@@ -359,6 +362,14 @@ class MyNet(nn.Module):
         self.downconv =BasicConv2d(channel*2,channel,1)
         self.catt1 =  CasAtt(channel)
         self.catt2 =  CasAtt(channel)
+        self.att1 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att2 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att3 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att4 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att5 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att6 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att7 = att_module(in_channels=channel*2,out_channels=channel)
+        self.att8 = att_module(in_channels=channel*2,out_channels=channel)
 
 
 
@@ -397,26 +408,30 @@ class MyNet(nn.Module):
         e1 =self.down01(e1) # 44 44
 
         e2 = torch.cat((xe2,e1),dim=1)
-        e2 = self.encoder2(e2) ## 22 22
+        e2 = self.att2(e2) ## 22 22
         e2 = self.down01(e2)
 
 
         e3 = torch.cat((xe3, e2), dim=1)
-        e3 = self.encoder3(e3) # 11 11
+        e3 = self.att3(e3) # 11 11
         e3 = self.down01(e3)
 
         e4 = torch.cat((xe4, e3), dim=1)
-        e4 = self.encoder4(e4)#11
+        e4 = self.att4(e4)#11
 
 
         d4 = torch.cat((e4,xd2_4),dim=1)
-        d4 , _  = self.decoder5(d4)
+        d4 = self.att5(d4)
+        d4 =self.upsample(d4)
+
 
         d3 = torch.cat((d4,xd2_3),dim=1)
-        d3 ,_=self.decoder6(d3)
+        d3 =self.att6(d3)
+        d3 =self.upsample(d3)
 
         d2 = torch.cat((d3, xd2_2),dim=1)
-        d2 ,_= self.decoder7(d2)
+        d2 = self.att7(d2)
+        d2 =self.upsample(d2)
 
         d1 = torch.cat((d2, d1_1),dim=1)
         d1 = self.decoder8(d1)
