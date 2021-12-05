@@ -8,16 +8,18 @@ class DefaultConfig(object):
     validation_step=1
     crop_height=16
     crop_width=16
-    trainsize = 352
+    trainsize = 64
     batch_size= 2
 
 
     #dataset
+  #  train_data_path='E:\dataset\dataset-video\dataset\VPS-TrainSet'
     train_data_path='E:\dataset\dataset\TrainSmall'
-    test_data_path='E:\dataset\dataset\TestDataset'
+    test_data_path='E:\dataset\dataset-video\dataset\TestDataset'
     dataset="Kvasir"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
-    testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
+  # testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
+    testdataset= ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"]  #
     num_workers = 1
 
     clip =  0.5

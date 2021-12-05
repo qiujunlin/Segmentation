@@ -18,7 +18,7 @@ import utils.utils as u
 from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
 
-from dataset.Dataset import  TestDataset
+from dataset.DatasetVideo import  TestDataset
 
 from torch.autograd import Variable
 """
@@ -77,8 +77,10 @@ def valid(model, dataset,args):
 
 
 def train(args, model, optimizer,dataloader_train,total):
-    Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
-                 'test': []}
+    # Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
+    #              'test': []}
+    Dicedict = {"CVC-ClinicDB-612-Test":[], "CVC-ClinicDB-612-Valid":[], "CVC-ColonDB-300":[],
+                'test': []}
     best_dice=0
     best_epo =0
     BCE = torch.nn.BCEWithLogitsLoss()
@@ -89,14 +91,14 @@ def train(args, model, optimizer,dataloader_train,total):
         model.train()
         loss_record = []
         loss_record1, loss_record2, loss_record3, loss_record4, loss_record5 = u.AvgMeter(), u.AvgMeter(), u.AvgMeter(), u.AvgMeter(), u.AvgMeter()
-        for i, (data, label,edgs) in enumerate(dataloader_train, start=1):
+        for i, (data, label) in enumerate(dataloader_train, start=1):
             for rate in size_rates:
 
                 #dataprepare
                 if torch.cuda.is_available() and args.use_gpu:
                     data = Variable(data).cuda()
                     label = Variable(label).cuda()
-                    edgs = Variable(edgs).cuda()
+              #      edgs = Variable(edgs).cuda()
 
                  # rescale
 
@@ -105,7 +107,7 @@ def train(args, model, optimizer,dataloader_train,total):
                 if   rate != 1:
                   data  = F.upsample(data, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
                   label  = F.upsample(label, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
-                  edgs = F.upsample(edgs, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+             #    edgs = F.upsample(edgs, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
 
                 """
                 网络训练 标准三步
@@ -133,7 +135,7 @@ def train(args, model, optimizer,dataloader_train,total):
                           format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train), loss_train_mean))
 
         if (epoch + 1) % 1 == 0:
-            for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB']:
+            for dataset in args.testdataset:
           # for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
                 dataset_dice = valid(model, dataset,args)
                 print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))

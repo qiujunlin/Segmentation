@@ -403,12 +403,21 @@ def test10():
     print(torch.rand(2, 2))
     print(torch.rand(2, 2))
 
+import  shutil
+def test11():
+    dest ='E:\dataset\dataset-video\dataset\TestDataset/test\masks'
+    path =r"E:\dataset\dataset-video\dataset\TestDataset\CVC-ClinicDB-612-Valid/masks/"
+    for f in os.listdir(path):
 
+
+        sourcepath = os.path.join(path,f)
+        new_name = os.path.join(dest,f)
+        shutil.copy(sourcepath,new_name)
 
 if __name__ == '__main__':
 
     print("ds")
-    test10()
+    test11()
  # import numpy as np
 
 
