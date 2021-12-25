@@ -12,7 +12,7 @@ def evaluate(pred, gt, th):
     pred_binary = (pred >= th).float()
     pred_binary_inverse = (pred_binary == 0).float()
 
-    gt_binary = (gt >= th).float()
+    gt_binary =(gt >= th).float()
     gt_binary_inverse = (gt_binary == 0).float()
 
     TP = pred_binary.mul(gt_binary).sum()

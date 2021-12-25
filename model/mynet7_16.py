@@ -74,7 +74,7 @@ class ASM(nn.Module):
 
 
 class MyNet(nn.Module):
-    def __init__(self, channel=64):
+    def __init__(self, channel=32):
         super(MyNet, self).__init__()
 
         self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]

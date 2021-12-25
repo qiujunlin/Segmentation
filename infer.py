@@ -13,32 +13,36 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
-from model.mynet7_16 import  MyNet
+from model.BiDFNet import  BiDFNet
+from model.BaseNet import  CPFNet
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet_020_0.8304.pth.tar')
+parser.add_argument('--testsize', type=int, default=(192,256), help='testing size')
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_BiDFNet_012_0.8403.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
 
- for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
- #for _data_name in ['test']:
-    data_path = r'E:\dataset\dataset\TestDataset\{}\\'.format(_data_name)
-    save_path = r'E:\dataset\dataset\TestDataset\{}\output/'.format(_data_name)
-    edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
+ #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
+ #for _data_name in ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"] :
+ for _data_name in ['test','val']:
+    data_path = r'E:\dataset\skin1\skin\TestDataset\{}\\'.format(_data_name)
+    save_path = r'E:\dataset\skin1\skin\TestDataset\{}\output/'.format(_data_name)
+   # edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
-    model = MyNet()
+    model = BiDFNet()
     model = torch.nn.DataParallel(model)
+   # model.load_state_dict(torch.load(opt.pth_path)['state_dict'])
     model.load_state_dict(torch.load(opt.pth_path))
     model.cuda()
-    #model.cpu()
+    #model.cpu()model_046_0.8890.pth.tar
     model.eval()
 
     os.makedirs(save_path, exist_ok=True)
-    os.makedirs(edge_save_path, exist_ok=True)
+
+   #os.makedirs(edge_save_path, exist_ok=True)
     test_loader1 = TestDataset(data_path, opt.testsize)
     test_loader = DataLoader(
         test_loader1,
@@ -53,10 +57,12 @@ if __name__ == '__main__':
         gt = np.asarray(gt, np.float32)
         gt /= (gt.max() + 1e-8)
         img = img.cuda()
-        prediction1,prediction2= model(img)
-        res = F.upsample(prediction2+prediction1, size=gt.shape[2:], mode='bilinear', align_corners=False)
+        prediction1 ,prediction2= model(img)
+        res = F.upsample(prediction1+prediction2, size=gt.shape[2:], mode='bilinear', align_corners=False)
         res = res.sigmoid().data.cpu().numpy().squeeze()
+       # res =(res>0.5)
         res = (res - res.min()) / (res.max() - res.min() + 1e-8)
+
         #path =save_path+  "".join(name)
         cv2.imwrite(save_path+name[0], res*255)
 

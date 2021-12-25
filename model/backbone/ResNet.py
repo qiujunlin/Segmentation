@@ -195,12 +195,13 @@ def resnet34(pretrained=False, **kwargs):
     model_dict = model.state_dict()
 
 
-    if pretrained:
-        pretrained_dict=model_zoo.load_url(model_urls['resnet34'],model_dir='F:\pretrain')   # Modify 'model_dir' according to your own path
-        print('Petrain Model Have been loaded!')
-        # pretrained_dict =  {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        # model_dict.update(pretrained_dict)
-        model.load_state_dict(pretrained_dict)
+    # if pretrained:
+    #     pretrained_dict = model_zoo.load_url(model_urls['resnet34'],
+    #                                          model_dir='/home/FENGsl/JBHI/Pretrain_model')  # Modify 'model_dir' according to your own path
+    #     print('Petrain Model Have been loaded!')
+    #     # pretrained_dict =  {k: v for k, v in pretrained_dict.items() if k in model_dict}
+    #     # model_dict.update(pretrained_dict)
+    #     model.load_state_dict(pretrained_dict)
     return model
 
 

@@ -2,24 +2,25 @@
 
 class DefaultConfig(object):
 
-    num_epochs=150
+    num_epochs=00
     epoch_start_i=0
     checkpoint_step=1
     validation_step=1
-    crop_height=16
-    crop_width=16
+    crop_height= 448
+    crop_width= 352
     trainsize = 64
     batch_size= 2
 
 
     #dataset
   #  train_data_path='E:\dataset\dataset-video\dataset\VPS-TrainSet'
-    train_data_path='E:\dataset\dataset\TrainSmall'
-    test_data_path='E:\dataset\dataset-video\dataset\TestDataset'
+    train_data_path='E:\dataset\data_med/train'
+    test_data_path='E:\dataset\data_med/test'
     dataset="Kvasir"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
   # testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
-    testdataset= ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"]  #
+    #testdataset= ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"]  #
+    testdataset =["test","val"]
     num_workers = 1
 
     clip =  0.5

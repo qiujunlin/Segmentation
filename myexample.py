@@ -357,12 +357,6 @@ def test7():
     for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB','test']:
       dice =valid(model, dataset, args)
       print(dataset, ': ', dice)
-def test8():
-
-     for f in os.listdir(r"E:\dataset\Ultro\TestDataset/test\masks"):
-             path = r"E:\dataset\Ultro\TestDataset/test\masks\\" + f
-             new_name = path.replace("_mask", "")
-             os.rename(path, new_name)
 
 
 def test9():
@@ -403,21 +397,84 @@ def test10():
     print(torch.rand(2, 2))
     print(torch.rand(2, 2))
 
+import cv2
 import  shutil
 def test11():
-    dest ='E:\dataset\dataset-video\dataset\TestDataset/test\masks'
-    path =r"E:\dataset\dataset-video\dataset\TestDataset\CVC-ClinicDB-612-Valid/masks/"
+    path ='F:\dataset\ISIC2018_Task1-2_Training_Input'
+    dest=r"F:\dataset\isic2018\dataset\masks"
+    for f in os.listdir(path):
+        if 'superpixels' not   in f:
+         sourcepath = os.path.join(path,f)
+         img_array = cv2.imread(sourcepath, cv2.IMREAD_COLOR)
+         new_name = os.path.join(dest,f)
+         new_array = cv2.resize(img_array, (256, 192), interpolation=cv2.INTER_CUBIC)
+         cv2.imwrite(new_name, new_array)
+        # shutil.copy(sourcepath,new_name)
+from PIL import Image
+
+def test12():
+    dest ='F:\dataset\isic2018\dataset\masks'
+    path =r"F:\dataset\ISIC2018_Task1_Training_GroundTruth\ISIC2018_Task1_Training_GroundTruth"
     for f in os.listdir(path):
 
-
         sourcepath = os.path.join(path,f)
-        new_name = os.path.join(dest,f)
-        shutil.copy(sourcepath,new_name)
+        img_array = cv2.imread(sourcepath, cv2.IMREAD_COLOR)
+        # 调用cv2.resize函数resize图片
+        new_array = cv2.resize(img_array, (512,384), interpolation=cv2.INTER_CUBIC)
+        newpath =  os.path.join(dest,f)
+        cv2.imwrite(newpath, new_array)
 
+
+def randchoice():
+
+    pathimg =  "E:\dataset\skin\skin\TestDataset\img"
+    pathmask =  "E:\dataset\skin\skin\TestDataset\mask"
+    destimg=  "E:\dataset\skin\skin\TrainDataset\images"
+    destmask=  "E:\dataset\skin\skin\TrainDataset\masks"
+
+    imgs = []
+    for x in os.listdir(pathimg):
+        if x.endswith('jpg'):
+            imgs.append(x)
+    selected_imgs = random.sample(imgs, k=259)
+    for img in selected_imgs :
+
+        srcimg = os.path.join(pathimg, img)
+        maskname =  img.replace(".jpg","")
+        maskname =maskname+"_segmentation.png"
+        srcmask = os.path.join(pathmask, maskname)
+        dstim= os.path.join(destimg,   img)
+        destm = os.path.join(destmask,   maskname)
+        shutil.move(srcimg, dstim)
+        shutil.move(srcmask, destm)
+def test13():
+    destimg=  "E:\dataset\dataset-video\dataset\TestDataset\CVC-ColonDB-300\images"
+  #  destmask=  "E:\dataset\dataset-video\dataset\TestDataset\CVC-ClinicDB-612-Valid\images"
+    destmask=  "E:\dataset\dataset-video\dataset\TestDataset/test\images"
+    arr =[]
+    arr2 =[]
+    for f  in os.listdir(destimg) :
+        arr.append(f)
+    for f in os.listdir(destmask):
+        if f  in arr :
+            arr2.append(f)
+
+    for  f in arr :
+        if f not in arr2:
+            print(f)
+
+def test8():
+    for f in os.listdir(r"E:\dataset\dataset-video\dataset\TestDataset\CVC-ColonDB-300\masks"):
+        path = r"E:\dataset\dataset-video\dataset\TestDataset\CVC-ColonDB-300\masks\\" + f
+        new_name = path.replace(".png", "-CVC-300.png")
+        os.rename(path, new_name)
+from torchvision import transforms
+from PIL import  Image
 if __name__ == '__main__':
-
-    print("ds")
-    test11()
- # import numpy as np
+  from config.config import DefaultConfig
+  arg =  DefaultConfig()
+  while True :
+      time.sleep(1)
+      print(arg.num_epochs)
 
 
