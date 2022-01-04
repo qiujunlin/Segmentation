@@ -19,17 +19,17 @@ from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--testsize', type=int, default=(192,256), help='testing size')
+parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
 parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_BiDFNet_012_0.8403.pth.tar')
 # for _data_name in ['CVC-ClinicDB']:
 #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
 if __name__ == '__main__':
 
- #for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
+ for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
  #for _data_name in ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"] :
- for _data_name in ['test','val']:
-    data_path = r'E:\dataset\skin1\skin\TestDataset\{}\\'.format(_data_name)
-    save_path = r'E:\dataset\skin1\skin\TestDataset\{}\output/'.format(_data_name)
+ #or _data_name in ['test','val']:
+    data_path = r'E:\dataset\data\TestDataset\{}\\'.format(_data_name)
+    save_path = r'E:\dataset\data\TestDataset\{}\output/'.format(_data_name)
    # edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
     model = BiDFNet()

@@ -166,7 +166,6 @@ class MyNet(nn.Module):
         x3_2 = self.conv_concat2(x3_2)
         x2_2 = torch.cat((x2_1, self.upsample(x3_2)), 1)
         x2_2 = self.conv_concat3(x2_2)
-
         x1_2 = torch.cat((x1_1, self.upsample(x2_2)), 1)
         x1_2 = self.conv_concat4(x1_2)
 

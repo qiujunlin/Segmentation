@@ -18,9 +18,9 @@ class DefaultConfig(object):
     test_data_path='E:\dataset\data_med/test'
     dataset="Kvasir"
     log_dirs='E:\workspace\python\CPFNet_Project\Log'
-  # testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
+    testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
     #testdataset= ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"]  #
-    testdataset =["test","val"]
+    #testdataset =["test","val"]
     num_workers = 1
 
     clip =  0.5

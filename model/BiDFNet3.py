@@ -36,7 +36,7 @@ class DecoderBlock(nn.Module):
         self.conv2 = BasicConv2d(in_channels, out_channels, kernel_size=kernel_size,
                                  stride=stride, padding=padding)
         self.doubleconv =doubleconv
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear',align_corners=True)
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
 
     def forward(self, x):
         if self.doubleconv:
@@ -46,23 +46,6 @@ class DecoderBlock(nn.Module):
         return x
 
 
-class ChannelAttention(nn.Module):
-    def __init__(self, in_planes, ratio=16):
-        super(ChannelAttention, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.max_pool = nn.AdaptiveMaxPool2d(1)
-
-        self.fc1   = nn.Conv2d(in_planes, in_planes // 16, 1, bias=False)
-        self.relu1 = nn.ReLU()
-        self.fc2   = nn.Conv2d(in_planes // 16, in_planes, 1, bias=False)
-
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        avg_out = self.fc2(self.relu1(self.fc1(self.avg_pool(x))))
-        max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
-        out = avg_out + max_out
-        return self.sigmoid(out)*x
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
         super(SELayer, self).__init__()
@@ -80,11 +63,23 @@ class SELayer(nn.Module):
         y = self.fc(y).view(b, c, 1, 1)
         return x * y.expand_as(x)
 
+class FSM(nn.Module):
+    def __init__(self, inchannel,outchannel):
+        super(FSM, self).__init__()
+        self.selayer = SELayer(inchannel)
+        self.conv = BasicConv2d(inchannel,outchannel,1)
+
+    def forward(self,  encoder):
+      #  fuse = torch.cat([encoder,higerencoder], dim=1)
+        fuse = self.selayer(encoder)
+        fuse =self.conv(fuse+encoder)
+        return fuse
+
 
 class AFM(nn.Module):
     def __init__(self, in_channels, all_channels):
         super(AFM, self).__init__()
-        self.selayer = ChannelAttention(all_channels)
+        self.selayer = SELayer(all_channels)
 
     def forward(self, higerencoder, encoder, decoder):
         fuse = torch.cat([encoder, decoder, higerencoder], dim=1)
@@ -95,17 +90,72 @@ class AFM(nn.Module):
 class RCM(nn.Module):
     def __init__(self, in_channels, out_channel):
         super(RCM, self).__init__()
-        self.conv1 = BasicConv2d(in_channels, out_channel, 3, padding=1)
+       # self.conv1 = BasicConv2d(in_channels, in_channels, 3, padding=1)
         self.conv2 = BasicConv2d(in_channels, out_channel, 1)
         self.conv3 = BasicConv2d(out_channel, out_channel, 3, padding=1)
 
-    def forward(self, afm, encoder):
-        encoder = self.conv1(encoder)
-        afm = self.conv2(afm)
+    def forward(self, encoder, afm):
+      #  encoder = self.conv1(encoder)
+        encoder = self.conv2(encoder)
         fuse = encoder + afm
         fuse = self.conv3(fuse)
         return fuse
+class CAB(nn.Module):
+    def __init__(self, features):
+        super(CAB, self).__init__()
 
+        self.delta_gen1 = nn.Sequential(
+            BasicConv2d(features*2,features,1,userelu=True),
+            nn.Conv2d(features, 2, kernel_size=3, padding=1, bias=False)
+        )
+
+        self.delta_gen2 = nn.Sequential(
+            BasicConv2d(features*2,features,1,userelu=True),
+            nn.Conv2d(features, 2, kernel_size=3, padding=1, bias=False)
+        )
+
+
+
+    def bilinear_interpolate_torch_gridsample(self, input, size, delta=0):
+        out_h, out_w = size
+        n, c, h, w = input.shape
+        s = 1.0
+        norm = torch.tensor([[[[h / s, w / s]]]]).type_as(input).to(input.device)
+        w_list = torch.linspace(-1.0, 1.0, out_h).view(-1, 1).repeat(1, out_w)
+        h_list = torch.linspace(-1.0, 1.0, out_w).repeat(out_h, 1)
+        grid = torch.cat((h_list.unsqueeze(2), w_list.unsqueeze(2)), 2)
+        grid = grid.repeat(n, 1, 1, 1).type_as(input).to(input.device)
+        grid = grid + delta.permute(0, 2, 3, 1) / norm
+
+        output = F.grid_sample(input, grid)
+        return output
+
+    def bilinear_interpolate_torch_gridsample2(self, input, size, delta=0):
+        out_h, out_w = size
+        n, c, h, w = input.shape
+        norm = torch.tensor([[[[1, 1]]]]).type_as(input).to(input.device)
+
+        delta_clam = torch.clamp(delta.permute(0, 2, 3, 1) / norm, -1, 1)
+        grid = torch.stack(torch.meshgrid(torch.linspace(-1, 1, out_h), torch.linspace(-1, 1, out_w)),
+                           dim=-1).unsqueeze(0)
+        grid = grid.repeat(n, 1, 1, 1).type_as(input).to(input.device)
+
+        grid = grid.detach() + delta_clam
+        output = F.grid_sample(input, grid)
+        return output
+
+    def forward(self, low_stage, high_stage):
+        h, w = low_stage.size(2), low_stage.size(3)
+        high_stage = F.interpolate(input=high_stage, size=(h, w), mode='bilinear', align_corners=True)
+
+        concat = torch.cat((low_stage, high_stage), 1)
+        delta1 = self.delta_gen1(concat)
+        delta2 = self.delta_gen2(concat)
+        high_stage = self.bilinear_interpolate_torch_gridsample(high_stage, (h, w), delta1)
+        low_stage = self.bilinear_interpolate_torch_gridsample(low_stage, (h, w), delta2)
+
+        high_stage += low_stage
+        return high_stage
 
 class BiDFNet(nn.Module):
     def __init__(self, channel=32):
@@ -127,26 +177,30 @@ class BiDFNet(nn.Module):
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
         # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder4 = DecoderBlock(in_channels=512, out_channels=320)
-        self.decoder3 = DecoderBlock(in_channels=320 +512 + 320, out_channels=128)
-        self.decoder2 = DecoderBlock(in_channels=128 + 320 +128, out_channels=64)
-        self.decoder1 = nn.Sequential(BasicConv2d(64+64+128, 64, 1),
-                                      BasicConv2d(64,64, 1))
+        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
+        self.decoder3 = DecoderBlock(in_channels=channel , out_channels=channel)
+        self.decoder2 = DecoderBlock(in_channels=channel , out_channels=channel)
+        self.decoder1 = nn.Sequential(BasicConv2d(channel , channel, 1))
         self.decoder5 = nn.Sequential(BasicConv2d(channel * 2, channel, 1))
         self.decoder6 = DecoderBlock(in_channels=channel * 2, out_channels=channel,doubleconv=False)
         self.decoder7 = DecoderBlock(in_channels=channel * 2, out_channels=channel,doubleconv=False)
         self.decoder8 = DecoderBlock(in_channels=channel, out_channels=channel,doubleconv=False)
 
         # adaptive Flusion module
-        self.afm3 = AFM(320, 320 +512 + 320)
-        self.afm2 = AFM(128, 128 + 320 +128 )
-        self.afm1 = AFM(64, 64+64+128)
-        self.afm4 = SELayer(512)
 
-        self.rcm1 = RCM(64+64+128, channel)
-        self.rcm2 = RCM(128 + 320 +128 , channel)
-        self.rcm3 = RCM( 320 +512 + 320, channel)
-        self.rcm4 = RCM(512, channel)
+        self.afm3 = FSM (channel ,channel)
+        self.afm2 = FSM(channel,channel)
+        self.afm1 = FSM(channel ,channel)
+        self.afm4 = FSM(channel,channel)
+
+        self.rcm1 = RCM(channel , channel)
+        self.rcm2 = RCM(channel , channel)
+        self.rcm3 = RCM(channel , channel)
+        self.rcm4 = RCM(channel, channel)
+
+        self.fluse3 = CAB(channel)
+        self.fluse2 = CAB(channel)
+        self.fluse1 = CAB(channel)
 
         self.unetout1 = nn.Conv2d(channel, 1, 1)
         self.unetout2 = nn.Conv2d(channel, 1, 1)
@@ -158,21 +212,24 @@ class BiDFNet(nn.Module):
         x2 = pvt[1]  # 1 128 44 44
         x3 = pvt[2]  # 1 320 22 22
         x4 = pvt[3]  # 1 512 11 11
-        # x1 = self.Translayer1(x1)
-        # x2 = self.Translayer2(x2)
-        # x3 = self.Translayer3(x3)
-        # x4 = self.Translayer4(x4)
+        x1 = self.Translayer1(x1)
+        x2 = self.Translayer2(x2)
+        x3 = self.Translayer3(x3)
+        x4 = self.Translayer4(x4)
 
         # decoder1
 
         afm4 = self.afm4(x4)
         d1_4 = self.decoder4(afm4)  # b 320 22 22
-        afm3 = self.afm3(x3, self.upsample(x4), d1_4)  # 512+320+320
-        d1_3 = self.decoder3(afm3)  # b 128 44 4
-        afm2 = self.afm2(x2, self.upsample(x3), d1_3)
-        d1_2 = self.decoder2(afm2)  # b 128 88 88
-        afm1 = self.afm1(x1, self.upsample(x2), d1_2)
-        d1_1 = self.decoder1(afm1)
+        afm3 = self.afm3(x3)  # 512+320+320
+        ful3  = self.fluse3(afm3,d1_4)
+        d1_3 = self.decoder3(ful3)  # b 128 44 4
+        afm2 = self.afm2(x2)
+        flu2 = self.fluse2(afm2,d1_3)
+        d1_2 = self.decoder2(flu2)  # b 128 88 88
+        afm1 = self.afm1(x1)
+        flu1 =self.fluse1(afm1,d1_2)
+        d1_1 = self.decoder1(flu1)
 
         # rcm
         x1 = self.rcm1(afm1, x1)  # b 64 88 88
