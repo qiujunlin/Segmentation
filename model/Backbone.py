@@ -90,9 +90,9 @@ class RCM(nn.Module):
         return fuse
 
 
-class BiDFNet(nn.Module):
+class BackBone(nn.Module):
     def __init__(self, channel=32):
-        super(BiDFNet, self).__init__()
+        super(BackBone, self).__init__()
 
         self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]
         path = 'F:\pretrain\pvt_v2_b3.pth'
@@ -102,38 +102,10 @@ class BiDFNet(nn.Module):
         model_dict.update(state_dict)
         self.backbone.load_state_dict(model_dict)
 
-        self.Translayer1 = BasicConv2d(64, channel, 1)
-        self.Translayer2 = BasicConv2d(128, channel, 1)
-        self.Translayer3 = BasicConv2d(320, channel, 1)
-        self.Translayer4 = BasicConv2d(512, channel, 1)
 
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
-        # self.decoder5 = DecoderBlock(in_channels=512, out_channels=512)
-        self.decoder4 = DecoderBlock(in_channels=channel, out_channels=channel)
-        self.decoder3 = DecoderBlock(in_channels=channel * 3, out_channels=channel)
-        self.decoder2 = DecoderBlock(in_channels=channel * 3, out_channels=channel)
-        self.decoder1 = nn.Sequential(BasicConv2d(channel * 3, channel, 1),
-                                      BasicConv2d(channel, channel, 1))
-        self.decoder5 = nn.Sequential(BasicConv2d(channel * 2, channel, 1),
-                                      BasicConv2d(channel, channel, 1))
-        self.decoder6 = DecoderBlock(in_channels=channel * 2, out_channels=channel,doubleconv=False)
-        self.decoder7 = DecoderBlock(in_channels=channel * 2, out_channels=channel,doubleconv=False)
-        self.decoder8 = DecoderBlock(in_channels=channel, out_channels=channel,doubleconv=False)
+        self.out = nn.Conv2d(512, 1, 1)
 
-        # adaptive Flusion module
-        self.afm3 = AFM(channel, channel * 3)
-        self.afm2 = AFM(channel, channel * 3)
-        self.afm1 = AFM(channel, channel * 3)
-        self.afm4 = SELayer(channel)
-
-        self.rcm1 = RCM(channel * 3, channel)
-        self.rcm2 = RCM(channel * 3, channel)
-        self.rcm3 = RCM(channel * 3, channel)
-        self.rcm4 = RCM(channel, channel)
-
-        self.unetout1 = nn.Conv2d(channel, 1, 1)
-        self.unetout2 = nn.Conv2d(channel, 1, 1)
 
     def forward(self, x):
         # backbone
@@ -142,69 +114,25 @@ class BiDFNet(nn.Module):
         x2 = pvt[1]  # 1 128 44 44
         x3 = pvt[2]  # 1 320 22 22
         x4 = pvt[3]  # 1 512 11 11
-        x1 = self.Translayer1(x1)
-        x2 = self.Translayer2(x2)
-        x3 = self.Translayer3(x3)
-        x4 = self.Translayer4(x4)
+        pred=  self.out(x4)
 
-        # decoder1
+        pred = F.interpolate(pred, scale_factor=32, mode='bilinear')
 
-        afm4 = self.afm4(x4)
-        d1_4 = self.decoder4(afm4)  # b 320 22 22
-        afm3 = self.afm3(x3, self.upsample(x4), d1_4)  # 512+320+320
-        d1_3 = self.decoder3(afm3)  # b 128 44 4
-        afm2 = self.afm2(x2, self.upsample(x3), d1_3)
-        d1_2 = self.decoder2(afm2)  # b 128 88 88
-        afm1 = self.afm1(x1, self.upsample(x2), d1_2)
-        d1_1 = self.decoder1(afm1)
 
-        # rcm
-        x1 = self.rcm1(afm1, x1)  # b 64 88 88
-        x2 = self.rcm2(afm2, x2)  # b 64 44 44
-        x3 = self.rcm3(afm3, x3)  # b 64  22 22
-        x4 = self.rcm4(afm4, x4)  # b 64 11 11
-
-        # feadback
-        guidance = d1_1
-        guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
-        guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
-        guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
-        x4 = x4 + guidance1
-        x3 = x3 + guidance2
-        x2 = x2 + guidance3
-        x1 = x1 + guidance
-
-        # decoder 2
-        x4_1 = x4
-        x3_1 = self.upsample(x4) * x3
-        x2_1 = self.upsample(x3) * x2
-        x1_1 = self.upsample(x2) * x1
-
-        x4_1 = self.decoder8(x4_1)
-        x3_2 = torch.cat((x3_1, x4_1), 1)
-        x3_2 = self.decoder7(x3_2)
-        x2_2 = torch.cat((x2_1, x3_2), 1)
-        x2_2 = self.decoder6(x2_2)
-        x1_2 = torch.cat((x1_1, x2_2), 1)
-        x1_2 = self.decoder5(x1_2)
-
-        pred1 = self.unetout1(d1_1)
-        pred2 = self.unetout2(x1_2)
-
-        pred2 = F.interpolate(pred2, scale_factor=4, mode='bilinear')
-        pred1 = F.interpolate(pred1, scale_factor=4, mode='bilinear')
-
-        return pred1, pred2
+        return pred
 
 
 if __name__ == '__main__':
     model = BiDFNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    pred2, pred1 = model(input_tensor)
-    print(pred2.size())
-    print(pred1.size())
-    # print(prediction1.size())
+    # from torchsummary import summary
+    #
+    model = BiDFNet().cuda()
+   # input_tensor = torch.randn(1, 3, 352, 352).cuda()
+    #summary(model=model, input_size=(3, 352, 352), batch_size=-1, device='cuda')
+    pre =model(input_tensor)
+    print(pre.size())
     # print(prediction2.size())
     # print(prediction3.size())
     # print(prediction4.size())

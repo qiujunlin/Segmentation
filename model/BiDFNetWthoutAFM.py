@@ -71,7 +71,7 @@ class AFM(nn.Module):
 
     def forward(self, higerencoder, encoder, decoder):
         fuse = torch.cat([encoder, decoder, higerencoder], dim=1)
-        fuse = self.selayer(fuse)
+       # fuse = self.selayer(fuse)
         return fuse
 
 

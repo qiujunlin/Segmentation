@@ -13,11 +13,14 @@ from PIL import Image
 import numpy as np
 from scipy import misc
 
+from model.BiDFNetS import  BiDFNet_s
 from model.BiDFNet import  BiDFNet
+from  model.BiDFNetOne import  BiDFNetOne
 from model.BaseNet import  CPFNet
 from dataset.Dataset import  TestDataset
+from model.lib.TransFuse import   TransFuse_S
 import  cv2
-
+from model.Backbone import BackBone
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
 parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_BiDFNet_012_0.8403.pth.tar')
@@ -36,7 +39,7 @@ if __name__ == '__main__':
     model = torch.nn.DataParallel(model)
    # model.load_state_dict(torch.load(opt.pth_path)['state_dict'])
     model.load_state_dict(torch.load(opt.pth_path))
-    model.cuda()
+    model.cuda()    
     #model.cpu()model_046_0.8890.pth.tar
     model.eval()
 
@@ -56,8 +59,9 @@ if __name__ == '__main__':
 
         gt = np.asarray(gt, np.float32)
         gt /= (gt.max() + 1e-8)
+      #  img =  img.permute(0,2,3,1)
         img = img.cuda()
-        prediction1 ,prediction2= model(img)
+        prediction2,prediction1 = model(img)
         res = F.upsample(prediction1+prediction2, size=gt.shape[2:], mode='bilinear', align_corners=False)
         res = res.sigmoid().data.cpu().numpy().squeeze()
        # res =(res>0.5)

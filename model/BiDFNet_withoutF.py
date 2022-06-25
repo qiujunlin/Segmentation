@@ -165,14 +165,14 @@ class BiDFNet(nn.Module):
         x4 = self.rcm4(afm4, x4)  # b 64 11 11
 
         # feadback
-        guidance = d1_1
-        guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
-        guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
-        guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
-        x4 = x4 + guidance1
-        x3 = x3 + guidance2
-        x2 = x2 + guidance3
-        x1 = x1 + guidance
+        # guidance = d1_1
+        # guidance1 = F.interpolate(guidance, scale_factor=1 / 8, mode='bilinear')
+        # guidance2 = F.interpolate(guidance, scale_factor=1 / 4, mode='bilinear')
+        # guidance3 = F.interpolate(guidance, scale_factor=1 / 2, mode='bilinear')
+        # x4 = x4 + guidance1
+        # x3 = x3 + guidance2
+        # x2 = x2 + guidance3
+        # x1 = x1 + guidance
 
         # decoder 2
         x4_1 = x4
@@ -201,11 +201,9 @@ if __name__ == '__main__':
     model = BiDFNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    from torchsummary import summary
-
-    model = BiDFNet().cuda()
-    # input_tensor = torch.randn(1, 3, 352, 352).cuda()
-    summary(model=model, input_size=(3, 352, 352), batch_size=-1, device='cuda')
+    pred2, pred1 = model(input_tensor)
+    print(pred2.size())
+    print(pred1.size())
     # print(prediction1.size())
     # print(prediction2.size())
     # print(prediction3.size())

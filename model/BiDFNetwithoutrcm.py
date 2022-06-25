@@ -85,9 +85,9 @@ class RCM(nn.Module):
     def forward(self, encoder, afm):
       #  encoder = self.conv1(encoder)
         encoder = self.conv2(encoder)
-        fuse = encoder + afm
-        fuse = self.conv3(fuse)
-        return fuse
+        # fuse = encoder + afm
+        # fuse = self.conv3(fuse)
+        return encoder
 
 
 class BiDFNet(nn.Module):

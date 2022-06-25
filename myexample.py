@@ -468,13 +468,31 @@ def test8():
         path = r"E:\dataset\dataset-video\dataset\TestDataset\CVC-ColonDB-300\masks\\" + f
         new_name = path.replace(".png", "-CVC-300.png")
         os.rename(path, new_name)
+
+def test20():
+    import cv2
+    img = cv2.imread('E:\dataset\data\TestDataset\CVC-300\images/149.png')
+    mask = cv2.imread('E:\dataset\data\TestDataset\CVC-300\masks/149.png')
+    pred = cv2.imread('E:\dataset\data\TestDataset\CVC-300\output/149.png')
+
+    mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    pred = cv2.cvtColor(pred, cv2.COLOR_BGR2GRAY)
+
+    ret, thresh = cv2.threshold(mask, 127, 255, 0)
+    retpred, threshpred = cv2.threshold(pred, 127, 255, 0)
+    contours, im = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 第一个参数是轮廓
+    contourspred, im = cv2.findContours(threshpred, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 第一个参数是轮廓
+    cv2.drawContours(image=img, contours=contours, contourIdx=-1, color=(0, 255, 0), thickness=1)
+    cv2.drawContours(image=img, contours=contourspred, contourIdx=-1, color=(255, 255, 0), thickness=1)
+
+    cv2.namedWindow('a')
+    cv2.imshow('a', img)
+    cv2.waitKey(0)
+
+
 from torchvision import transforms
 from PIL import  Image
 if __name__ == '__main__':
-  from config.config import DefaultConfig
-  arg =  DefaultConfig()
-  while True :
-      time.sleep(1)
-      print(arg.num_epochs)
+  test20()
 
 
