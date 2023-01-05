@@ -2,30 +2,24 @@
 
 class DefaultConfig(object):
 
-    num_epochs=00
+    num_epochs=10
     epoch_start_i=0
     checkpoint_step=1
     validation_step=1
-    crop_height= 448
+    crop_height= 352
     crop_width= 352
     trainsize = 64
-    batch_size= 2
+    batch_size= 16
 
 
-    #dataset
-  #  train_data_path='E:\dataset\dataset-video\dataset\VPS-TrainSet'
-    train_data_path='E:\dataset\data_med/train'
-    test_data_path='E:\dataset\data_med/test'
-    dataset="Kvasir"
-    log_dirs='E:\workspace\python\CPFNet_Project\Log'
+    train_data_path='/root/autodl-fs/datasetnew/TrainDataset'
+    test_data_path='/root/autodl-fs/datasetnew/TestDataset'
     testdataset= ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']  #
-    #testdataset= ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"]  #
-    #testdataset =["test","val"]
+
     num_workers = 1
 
     clip =  0.5
     testsize =  (352,352)
-
 
     #optim
     optimizer = 'AdamW'
@@ -35,12 +29,12 @@ class DefaultConfig(object):
     momentum = 0.9#
     weight_decay =1e-4#1e-4#
     decay_rate = 0.1
-    decay_epoch =100
+    decay_epoch =50
     cuda = '0'
     use_gpu = True
 
     num_classes=1
-    augmentations =False
+    augmentations =True
 
 
 

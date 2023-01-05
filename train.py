@@ -1,24 +1,20 @@
 # coding=gbk
-import logging
-import shutil
 from torch.utils.data import DataLoader
 import warnings
 # action参数可以设置为ignore，一位一次也不喜爱你是，once表示为只显示一次
 warnings.filterwarnings(action='ignore')
-
+import math
 from datetime import datetime
 import os
 import torch
-
+import torch.optim.lr_scheduler as lr_scheduler
 from torch.nn import functional as F
 import numpy as np
 
 import utils.utils as u
-
+from torch import optim
 from config.config import DefaultConfig
 import torch.backends.cudnn as cudnn
-
-from dataset.DatasetVideo import  TestDataset
 
 from torch.autograd import Variable
 """
@@ -29,9 +25,10 @@ from torch.autograd import Variable
 导入模型 数据加载
 """
 
-from dataset.Dataset import Dataset
+from dataset.Dataset1 import Dataset
+from dataset.Dataset1 import TestDataset
 
-from  model.mynet13_9 import MyNet
+from model.idea2.MyNet11 import MyNet11
 
 
 
@@ -53,14 +50,13 @@ def valid(model, dataset,args):
             gt = np.asarray(gt, np.float32)
             gt /= (gt.max() + 1e-8)
             image = image.cuda()
-            prediction1, prediction2= model(image)
+            a, b, c, d, e= model(image)
             # eval Dice
-            res = F.upsample(prediction1+prediction2 , size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = F.upsample(a, size=gt.shape[2:], mode='bilinear', align_corners=False)
             res = res.sigmoid().data.cpu().numpy().squeeze()
             res = (res - res.min()) / (res.max() - res.min() + 1e-8)
             input = res
             target = np.array(gt)
-            N = gt.shape
             smooth = 1
             input_flat = np.reshape(input, (-1))
             target_flat = np.reshape(target, (-1))
@@ -73,24 +69,39 @@ def valid(model, dataset,args):
 
 
 
+def bdm_loss(pred, target, thresh=0.002, min_ratio=0.1):
 
+    pred = pred.view(-1)
+    target = target.view(-1)
+
+    loss = F.mse_loss(pred, target, reduction='none')
+    _, index = loss.sort()  # 从小到大排序
+
+    threshold_index = index[-round(min_ratio * len(index))]  # 找到min_kept数量的hardexample的阈值
+
+    if loss[threshold_index] < thresh:  # 为了保证参与loss的比例不少于min_ratio
+        thresh = loss[threshold_index].item()
+
+    loss[loss < thresh] = 0
+
+    loss = loss.mean()
+
+    return loss
 
 
 def train(args, model, optimizer,dataloader_train,total):
-    # Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
-    #              'test': []}
-    Dicedict = {"CVC-ClinicDB-612-Test":[], "CVC-ClinicDB-612-Valid":[], "CVC-ColonDB-300":[],
-                'test': []}
+    Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
+                 'test': []}
+    lr_lambda = lambda epoch: ((1 + math.cos(epoch * math.pi / args.num_epochs)) / 2) * (1 - 0.01) + 0.01
+
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     best_dice=0
     best_epo =0
     BCE = torch.nn.BCEWithLogitsLoss()
-    criterion = u.BceDiceLoss()
     for epoch in range(1, args.num_epochs+1):
-        u.adjust_lr(optimizer, args.lr, epoch, args.decay_rate, args.decay_epoch)
-        size_rates = [0.75, 1, 1.25]  # replace your desired scale, try larger scale for better accuracy in small object
+        size_rates = [ 0.75,1,1.25]  # replace your desired scale, try larger scale for better accuracy in small object
         model.train()
         loss_record = []
-        loss_record1, loss_record2, loss_record3, loss_record4, loss_record5 = u.AvgMeter(), u.AvgMeter(), u.AvgMeter(), u.AvgMeter(), u.AvgMeter()
         for i, (data, label) in enumerate(dataloader_train, start=1):
             for rate in size_rates:
 
@@ -98,28 +109,25 @@ def train(args, model, optimizer,dataloader_train,total):
                 if torch.cuda.is_available() and args.use_gpu:
                     data = Variable(data).cuda()
                     label = Variable(label).cuda()
-              #      edgs = Variable(edgs).cuda()
-
-                 # rescale
+                    edgs = Variable(edgs).cuda()
 
                 trainsize = int(round(args.trainsize * rate / 32) * 32)
 
                 if   rate != 1:
                   data  = F.upsample(data, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
                   label  = F.upsample(label, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
-             #    edgs = F.upsample(edgs, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+                  edgs = F.upsample(edgs, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
 
                 """
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                prediction1, prediction2 =model(data)
+                a, b, c, d, e =model(data)
 
                 """
                 计算损失函数
                 """
-
-                loss = u.bce_dice(prediction1,label)+u.bce_dice(prediction2,label)
+                loss = u.structure_loss(a,label)+u.structure_loss(b,label)+u.structure_loss(c,label)+u.structure_loss(d,label) +BCE(e,edgs)
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)
@@ -131,22 +139,28 @@ def train(args, model, optimizer,dataloader_train,total):
             if i % 20 == 0 or i == total:
                 loss_train_mean = np.mean(loss_record)
                 print('{} Epoch [{:03d}/{:03d}], Step [{:04d}/{:04d}], '
-                          '[loss for train : {:.4f}]'.
-                          format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train), loss_train_mean))
-
+                          '[loss for train : {:.4f},lr:{:.7f}]'.
+                          format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train), loss_train_mean, scheduler.get_last_lr()[0]))
+        scheduler.step()
         if (epoch + 1) % 1 == 0:
             for dataset in args.testdataset:
-          # for dataset in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
                 dataset_dice = valid(model, dataset,args)
                 print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
                 Dicedict[dataset].append(dataset_dice)
             meandice = valid(model, 'test',args )
             print("dataset:{},Dice:{:.4f}".format("test", meandice))
             Dicedict['test'].append(meandice)
+            # if  Dicedict['Kvasir'][-1] > 0.92 and Dicedict['CVC-ClinicDB'] > 0.94 and Dicedict['CVC-ColonDB'] >0.8 and Dicedict['CVC-ColonDB'] and  Dicedict['ETIS-LaribPolypDB']>0.79 :
+            #     best_dice = meandice
+            #     best_epo = epoch
+            #     checkpoint_dir = "/root/autodl-fs/checkpoints"
+            #     filename = 'model_{}_{:03d}_{:.4f}.pth.tar'.format(args.net_work, epoch, best_dice)
+            #     checkpointpath = os.path.join(checkpoint_dir, filename)
+            #     torch.save(model.state_dict(), checkpointpath)
             if meandice > best_dice:
                 best_dice = meandice
                 best_epo =epoch
-                checkpoint_dir = "./checkpoint"
+                checkpoint_dir = "/root/autodl-fs/checkpoints"
                 filename = 'model_{}_{:03d}_{:.4f}.pth.tar'.format(args.net_work, epoch,best_dice)
                 checkpointpath = os.path.join(checkpoint_dir, filename)
                 torch.save(model.state_dict(), checkpointpath)
@@ -161,7 +175,7 @@ def main():
     create dataset and dataloader
     """
 
-    dataset_train = Dataset(args.train_data_path, scale=(args.trainsize, args.trainsize),augmentations=args.augmentations)
+    dataset_train = Dataset(args.train_data_path, w=args.trainsize,h=args.trainsize,augmentations=args.augmentations,hasEdg=True)
     dataloader_train = DataLoader(
         dataset_train,
         batch_size=args.batch_size,
@@ -179,7 +193,7 @@ def main():
     load model
     """
 
-    model_all={'MyNet':MyNet()}
+    model_all={'MyNet11':MyNet11()}
 
     model=model_all[args.net_work]
     print(args.net_work)

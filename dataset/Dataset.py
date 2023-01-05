@@ -1,84 +1,101 @@
 import torch
-import glob
 import os
-import sys
 import numpy as np
 from torchvision import transforms
-from torchvision.transforms import functional as F
-#import cv2
 from PIL import Image
 import random
-
+import cv2
+from scipy.ndimage.morphology import distance_transform_edt
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+from torchvision import transforms as T
 class Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset_path,scale=(352,352),augmentations = True,hasEdg =False):
+    def __init__(self, dataset_path,w=352,h=352,augmentations = True,hasEdg =False):
         super().__init__()
         self.augmentations = augmentations
         self.img_path=dataset_path+'/images/'
         self.mask_path=dataset_path+'/masks/'
-        #self.edge_path = dataset_path +'/edgs/'
+        self.datapath =  dataset_path
+        self.w=w
+        self.h =h
 
         self.edge_flage = hasEdg
         self.images = [self.img_path + f for f in os.listdir(self.img_path) if f.endswith('.jpg') or f.endswith('.png')]
         self.gts = [self.mask_path + f for f in os.listdir(self.mask_path) if f.endswith('.png') or f.endswith(".jpg")]
-       # self.edges = [self.edge_path + f for f in os.listdir(self.edge_path) if f.endswith('.png') or f.endswith(".jpg")]
-        if self.augmentations :
-            print('Using RandomRotation, RandomFlip')
-            self.img_transform = transforms.Compose([
-                transforms.RandomVerticalFlip(p=0.5),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomRotation(90, resample=False, expand=False, center=None),
-                transforms.Resize(scale,Image.NEAREST),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406],
-                                     [0.229, 0.224, 0.225])])
-            self.gt_transform = transforms.Compose([
 
-                transforms.RandomVerticalFlip(p=0.5),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomRotation(90, resample=False, expand=False, center=None),
-                transforms.Resize(scale,Image.BILINEAR),
-                transforms.ToTensor()])
+        self.samples = [name for name in os.listdir(self.datapath + '/images') if name[0] != "."]
+        self.color1, self.color2 = [], []
+        for name in self.samples:
+            if name[:-4].isdigit():
+                self.color1.append(name)
+            else:
+                self.color2.append(name)
+        if self.augmentations == True:
+            print("use  data augmentation !")
+            self.transform = A.Compose([
+                # A.OneOf([
+                #     A.RandomResizedCrop(self.w, self.h, scale=(0.75, 1))
+                # ], p=0.5),
+                # A.HorizontalFlip(p=0.5),
+                # A.VerticalFlip(p=0.5),
+                # A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=45, p=0.5),
+                # A.OneOf([
+                #     A.CoarseDropout(max_holes=8, max_height=20, max_width=20, min_holes=None, min_height=None,
+                #                     min_width=None, fill_value=0, p=1),
+                #     A.GaussNoise(var_limit=(10.0, 50.0), mean=0, p=1),
+                # ], p=0.5),
+                A.Resize(352, 352),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.RandomRotate90(p=0.5)
+               # ToTensorV2()
+            ])
 
         else:
-            print('no augmentation')
-            self.img_transform = transforms.Compose([
-                transforms.Resize(scale,Image.BILINEAR),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406],
-                                     [0.229, 0.224, 0.225])])
-
-            self.gt_transform = transforms.Compose([
-                transforms.Resize(scale,Image.BILINEAR),
-                transforms.ToTensor()])
+            print("no data augmentation")
+            self.transform = A.Compose([A.Resize(h,w)])
+        self.as_tensor1 = T.Compose([
+            T.ToTensor(),
+            T.Normalize([0.485, 0.456, 0.406],
+                        [0.229, 0.224, 0.225])
+        ])
+        self.as_tensor2 = T.Compose([
+            T.ToTensor()
+        ])
 
 
     def __getitem__(self, index):
-        image = self.rgb_loader(self.images[index])
-        gt = self.binary_loader(self.gts[index])
-       # image = self.img_transform(image)
-        #gt = self.gt_transform(gt)
-        seed = np.random.randint(2147483647)  # make a seed with numpy generator
-        random.seed(seed)  # apply this seed to img tranfsorms
-        torch.manual_seed(seed)  # needed for torchvision 0.7
-        if self.img_transform is not None:
-            image = self.img_transform(image)
+        # image_path = self.images[index]
+        # label_path = self.gts[index]
+        # image = cv2.imread(image_path, cv2.IMREAD_COLOR)  # BGR 3 channel ndarray wiht shape H * W * 3
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # convert cv2 read image from BGR order to RGB order
+        # label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)# GRAY 1 channel ndarray with shape H * W
+        #
+        # seed = np.random.randint(2147483647)  # make a seed with numpy generator
+        # random.seed(seed)  # apply this seed to img tranfsorms
+        # torch.manual_seed(seed)  # needed for torchvision 0.
+        # total = self.transform(image=image, mask=label)
+        # image = total["image"]
+        # label = total["mask"]
+        name = self.samples[index]
+        image = cv2.imread(self.datapath + '/images/' + name)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
 
-        random.seed(seed)  # apply this seed to img tranfsorms
-        torch.manual_seed(seed)  # needed for torchvision 0.7
-        if self.gt_transform is not None:
-            gt = self.gt_transform(gt)
+        name2 = self.color1[index % len(self.color1)] if np.random.rand() < 0.7 else self.color2[index % len(self.color2)]
+        image2 = cv2.imread(self.datapath + '/images/' + name2)
+        image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2LAB)
 
-
-        if self.edge_flage:
-            edge = self.binary_loader(self.edges[index])
-            random.seed(seed)  # apply this seed to img tranfsorms
-            torch.manual_seed(seed)  # needed for torchvision 0.7
-            edge = self.gt_transform(edge)
-            return image, gt, edge
-        else:
-            return image, gt
-       # return image, gt
+        mean, std = image.mean(axis=(0, 1), keepdims=True), image.std(axis=(0, 1), keepdims=True)
+        mean2, std2 = image2.mean(axis=(0, 1), keepdims=True), image2.std(axis=(0, 1), keepdims=True)
+        image = np.uint8((image - mean) / std * std2 + mean2)
+        image = cv2.cvtColor(image, cv2.COLOR_LAB2RGB)
+        mask = cv2.imread(self.datapath + '/masks/' + name, cv2.IMREAD_GRAYSCALE)
+        pair = self.transform(image=image, mask=mask)
+        image=  pair["image"]
+        mask = pair["mask"]
+     #   mask = mask/255.0
+        return  self.as_tensor1(image),self.as_tensor2(mask)
 
 
     def rgb_loader(self, path):
@@ -91,7 +108,6 @@ class Dataset(torch.utils.data.Dataset):
             img = Image.open(f)
             # return img.convert('1')
             return img.convert('L')
-
 
     def __len__(self):
         return len(self.images)
@@ -145,8 +161,13 @@ class TestDataset(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-   data = Dataset('E:\dataset\dataset\TrainDataset')
-   print(data.__getitem__(0))
+   data = Dataset('E:\dataset\dataset\TrainDataset',hasEdg=True)
+   a,b= data.__getitem__(0)
+   print(a)
+   print(b)
+   print(a.size())
+   print(b.size())
+   #print(a)
 
 
 

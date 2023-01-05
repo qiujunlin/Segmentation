@@ -1,15 +1,11 @@
 # coding:utf-8
 import  os
 import  torch
-import numpy as np
 import  torch.nn as nn
 import  torchvision.models as models
-from PIL import Image
 import  time
 from config.config import DefaultConfig
-from scipy import misc
 import random
-import cv2
 import numpy as np
 from scipy.ndimage.morphology import distance_transform_edt
 import logging
@@ -88,7 +84,7 @@ def t():
     pretrained_model_path = 'F:/checkpoints/2.tar'
     checkpoint = torch.load(pretrained_model_path)
     cudnn.benchmark = True
-    from model.BaseNet import CPFNet
+
     model_all = {'BaseNet': CPFNet(out_planes=2)
                  }
     model = model_all['BaseNet']
@@ -110,7 +106,6 @@ def bceloss():
     losss  = bce_logit(a,b)
     print(losss)
 def u():
-    import  torch.nn.functional as F
     a =  torch.Tensor([0.98,0.1])
     c = torch.sigmoid(a)
     print(c)
@@ -211,7 +206,8 @@ def testtqdm():
                      leave=False, bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:40}{r_bar}')
     for i  in  pbar:
      time.sleep(0.1)
-import  numpy
+
+
 def test2():
     pred =torch.randn(3,3)
     print(pred)
@@ -235,20 +231,7 @@ def test4():
     logging.info("Dasd")
     logging.info("Dasd")
 
-def binary2edge(mask_path):
-    """
-    func1: threshold(src, thresh, maxval, type[, dst]) -> retval, dst
-            https://www.cnblogs.com/FHC1994/p/9125570.html
-    func2: Canny(image, threshold1, threshold2[, edges[, apertureSize[, L2gradient]]]) -> edges
 
-    :param mask_path:
-    :return:
-    """
-    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-    ret, mask_binary = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)  # if <0, pixel=0 else >0, pixel=255
-    mask_edge = cv2.Canny(mask_binary, 10, 150)
-
-    return mask_edge
 def  test5():
     for imagename in os.listdir("E:\dataset\dataset\TrainSmall\masks"):
         edge_map = binary2edge(os.path.join("E:\dataset\dataset\TrainSmall\masks",imagename))
@@ -256,12 +239,12 @@ def  test5():
 
 
 def test6():
-    for imagename in os.listdir("E:\dataset\dataset\TrainSmall\masks"):
+    for imagename in os.listdir("F:\dataset\dataset\TrainDataset\masks"):
 
-        mask = cv2.imread(os.path.join("E:\dataset\dataset\TrainSmall\masks",imagename), cv2.IMREAD_GRAYSCALE)
+        mask = cv2.imread(os.path.join("F:\dataset\dataset\TrainDataset\masks",imagename), cv2.IMREAD_GRAYSCALE)
         edge_map =  mask_to_onehot(mask,2)
         edge_map = onehot_to_binary_edges(edge_map,2,2)
-        cv2.imwrite(os.path.join("E:\dataset\dataset\TrainSmall\edgs", imagename), edge_map*255)
+        cv2.imwrite(os.path.join("F:\dataset\dataset\TrainDataset\edgs", imagename), edge_map*255)
 
 def mask_to_onehot(mask, num_classes):
     """
@@ -293,14 +276,14 @@ def onehot_to_binary_edges(mask, radius, num_classes):
     edgemap = (edgemap > 0).astype(np.uint8)
     edgemap =  np.squeeze(edgemap)
     return edgemap
-def test6():
-    decay_rate = 0.1
-    decay_epoch =30
-    for epoch in range(1,100):
-      print(decay_rate ** (epoch // decay_epoch))
-from dataset.Dataset import Dataset
+# def test6():
+#     decay_rate = 0.1
+#     decay_epoch =30
+#     for epoch in range(1,100):
+#       print(decay_rate ** (epoch // decay_epoch))
+
+
 from dataset.Dataset import  TestDataset
-import shutil
 from torch.utils.data import DataLoader
 from torch.nn import functional as F
 import utils.utils as u
@@ -345,7 +328,7 @@ def valid(model, dataset,args):
 
 def test7():
     path ='F:\百度云下载\model_pth\PolypPVT.pth'
-    from model.pvt import  PolypPVT
+    from model import  PolypPVT
     from config import  config
     model = PolypPVT()
   #  model = torch.nn.DataParallel(model)
@@ -489,10 +472,169 @@ def test20():
     cv2.imshow('a', img)
     cv2.waitKey(0)
 
+def binary2edge(mask_path):
+    """
+    func1: threshold(src, thresh, maxval, type[, dst]) -> retval, dst
+            https://www.cnblogs.com/FHC1994/p/9125570.html
+    func2: Canny(image, threshold1, threshold2[, edges[, apertureSize[, L2gradient]]]) -> edges
 
-from torchvision import transforms
-from PIL import  Image
+    :param mask_path:
+    :return:
+    """
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    ret, mask_binary = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)  # if <0, pixel=0 else >0, pixel=255
+    mask_edge = cv2.Canny(mask_binary, 10, 150)
+
+    return mask_edge
+
+
+def binaryMask(im_path):
+    im = cv2.imread(im_path, cv2.IMREAD_GRAYSCALE)
+    ret, mask_binary = cv2.threshold(im, 0, 255, cv2.THRESH_BINARY)
+
+    return mask_binary
+def test21():
+    img = cv2.imread('E:\dataset\data\TestDataset\CVC-300\images/149.png')
+
+# if __name__ == '__main__':
+#     cv2.imshow("das",binary2edge(r"E:\dataset\Ultro\TrainDataset\masks/1-1.png"))
+#     cv2.waitKey()
+#     print(torch.__version__)
+#     print(torch.cuda.is_available())
+
+def distribution_map(mask, sigma):
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)  # 消除标注的问题孤立点
+
+        dist1 = distance_transform_edt(mask)
+        dist2 = distance_transform_edt(1 - mask)
+        dist = dist1 + dist2
+        dist = dist - 1
+
+        f = lambda x, sigma: 1 / (np.sqrt(2 * np.pi) * sigma) * np.exp(-x ** 2 / (2 * sigma ** 2))
+
+        bdm = f(dist, sigma)
+
+        bdm[bdm < 0] = 0
+
+        return bdm * (sigma ** 2)
+
+def bdm_loss(pred, target, thresh=0.002, min_ratio=0.1):
+
+    pred = pred.view(-1)
+    target = target.view(-1)
+
+    loss = F.mse_loss(pred, target, reduction='none')
+    _, index = loss.sort()  # 从小到大排序
+
+    threshold_index = index[-round(min_ratio * len(index))]  # 找到min_kept数量的hardexample的阈值
+
+    if loss[threshold_index] < thresh:  # 为了保证参与loss的比例不少于min_ratio
+        thresh = loss[threshold_index].item()
+
+    loss[loss < thresh] = 0
+
+    loss = loss.mean()
+
+    return loss
+
+
+
+class BasicConv2d(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1,relu=True):
+        super(BasicConv2d, self).__init__()
+        self.conv = nn.Conv2d(in_planes, out_planes,
+                              kernel_size=kernel_size, stride=stride,
+                              padding=padding, dilation=dilation, bias=False)
+        self.bn = nn.BatchNorm2d(out_planes)
+        self.relu = nn.ReLU(inplace=True) if relu else None
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        if self.relu is not None:
+            x = self.relu(x)
+        return x
+
+
+class Fusion(nn.Module):
+    def __init__(self, channel, kernel_size=7):
+        super(Fusion, self).__init__()
+        self.relu = nn.ReLU(True)
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+        self.conv1 = BasicConv2d(channel, channel, 3, padding=1)
+        self.conv2 = BasicConv2d(channel, channel, 3, padding=1)
+
+        self.fuseconv = BasicConv2d(channel, channel, kernel_size=3, padding=1)
+
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.downsample = nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=True)
+
+        self.conv_high = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=padding, bias=False)
+        self.conv_low = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=padding, bias=False)
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, high, low):
+        low = self.conv1(low)
+        high = self.conv2(high)
+
+        avg_low = torch.mean(low, dim=1, keepdim=True)
+        max_low, _ = torch.max(low, dim=1, keepdim=True)
+        avg_high = torch.mean(high, dim=1, keepdim=True)
+        max_high, _ = torch.max(high, dim=1, keepdim=True)
+
+        avg_low_fu = avg_low * self.upsample(max_high)
+        max_low_fu = max_low * self.upsample(avg_high)
+        avg_high_fu = avg_high * self.downsample(max_low)
+        max_high_fu = max_high * self.downsample(avg_low)
+
+        low_fuse = self.conv_low(torch.cat((avg_low_fu, max_low_fu),dim=1))
+        high_fuse = self.conv_high(torch.cat((avg_high_fu, max_high_fu), dim=1))
+
+        low = self.sigmoid(low_fuse) * low
+        high = self.sigmoid(high_fuse) * high
+
+        fuse = self.fuseconv(low +self.upsample( high))
+
+        return  fuse
+def binary2edge(mask_path):
+    """
+    func1: threshold(src, thresh, maxval, type[, dst]) -> retval, dst
+            https://www.cnblogs.com/FHC1994/p/9125570.html
+    func2: Canny(image, threshold1, threshold2[, edges[, apertureSize[, L2gradient]]]) -> edges
+
+    :param mask_path:
+    :return:
+    """
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    ret, mask_binary = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)  # if <0, pixel=0 else >0, pixel=255
+    mask_edge = cv2.Canny(mask_binary, 10, 150)
+
+    return mask_edge
+def  test22():
+    #for imagename in os.listdir("E:\dataset\dataset\TrainDataset\masks"):
+        imagename = "22.png"
+        label_path = "E:\dataset\datasetnew\TrainDataset\masks/"+imagename
+        label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)  # GRAY 1 channel ndarray with shape H * W
+   #     label = np.float32(label > 128)
+    #    label = distribution_map(label, 1)
+     #   _edgemap = label.squeeze(axis=None)
+      #  savepath = "E:\dataset\dataset\TrainDataset\edgs/"+imagename
+
+       # cv2.imwrite(savepath, label *255)
+        label =  binary2edge(label_path)
+        label =  cv2.dilate(label,np.ones((5, 5), np.uint8),1)
+        cv2.imshow("1",  label)
+        cv2.waitKey(0)
+
 if __name__ == '__main__':
-  test20()
+     model=Fusion(32)
 
-
+     a=torch.rand(2,32,256,256)
+     b=torch.rand(2,32,512,512)
+   #
+   #  print(a(b).size())
+     print(model(a,b))
+     print(model(a,b).size())

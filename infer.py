@@ -1,26 +1,14 @@
-import torch
-import torch.nn.functional as F
-import numpy as np
 from torch.utils.data import DataLoader
-import os, argparse
-import imageio
+import argparse
 import os
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms as transforms
-from PIL import Image
 import numpy as np
-from scipy import misc
 
-from model.BiDFNetS import  BiDFNet_s
-from model.BiDFNet import  BiDFNet
-from  model.BiDFNetOne import  BiDFNetOne
-from model.BaseNet import  CPFNet
+from model import  BiDFNet
 from dataset.Dataset import  TestDataset
-from model.lib.TransFuse import   TransFuse_S
 import  cv2
-from model.Backbone import BackBone
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
 parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_BiDFNet_012_0.8403.pth.tar')

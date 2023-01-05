@@ -1,17 +1,13 @@
 import torch
 import tqdm
-from utils.metrics import evaluate
 from torch.utils.data import DataLoader
-from utils.metrics import Metrics
 from dataset.Dataset import TestDataset
 from config.config import DefaultConfig
 
 import torch.nn.functional as F
 import os
-import  numpy as np
 import imageio
-from PIL import Image
-from model.CBAMUnet import CBAMUnet
+from model.idea1 import CBAMUnet
 
 
 def generate_model(args):
