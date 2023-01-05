@@ -1,15 +1,15 @@
-##介绍
-个人的研究生期间研究记录，基于深度学习的图像分割，包括语义分割、医学分割。包含个人研究模型，代码
+## 📝介绍
+ 😃个人的研究生期间研究记录，基于深度学习的图像分割，包括语义分割、医学分割。包含个人研究模型，代码
 ### 发表论文名称 ：
  BiDFNet:Bi-decoder and Feedback Network for Automatic Polyp Segmentation with Vision Transformers
-### 代码以及实验数据：
+### 📝 代码以及实验数据：
 将在中选后发出。
 
-### 看过的论文 ：
+### 📝 看过的论文 ：
 
 ![示例图片](image/论文分类.png)
 
-### State-of-the-art Approaches  
+### 📝 State-of-the-art Approaches  
 1. "Selective feature aggregation network with area-boundary constraints for polyp segmentation." IEEE Transactions on Medical Imaging, 2019.
 paper link: https://link.springer.com/chapter/10.1007/978-3-030-32239-7_34 
 2. "PraNet: Parallel Reverse Attention Network for Polyp Segmentation" IEEE Transactions on Medical Imaging, 2020.
