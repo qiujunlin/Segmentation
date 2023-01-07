@@ -152,7 +152,6 @@ class CFM(nn.Module):
 
 
 
-
 class Fusion(nn.Module):
     def __init__(self, channel, kernel_size=7):
         super(Fusion, self).__init__()
@@ -165,15 +164,18 @@ class Fusion(nn.Module):
         self.fuseconv = BasicConv2d(channel, channel, kernel_size=3, padding=1)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
         self.downsample = nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=True)
 
         self.conv_high = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=padding, bias=False)
         self.conv_low = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=padding, bias=False)
+        self.conv_l = nn.Conv2d(channel*3, channel, kernel_size=3, padding=1, bias=False)
 
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, high, low):
         low = self.conv1(low)
+     #   high = self.conv2(self.conv_l(torch.cat((self.upsample(x3),self.upsample1(x4),x2),dim=1)))
         high = self.conv2(high)
 
         avg_low = torch.mean(low, dim=1, keepdim=True)
@@ -210,7 +212,7 @@ class MyNet10(nn.Module):
         model_dict.update(state_dict)
         self.backbone.load_state_dict(model_dict)
         # ---- Receptive Field Block like module ----
-        self.rfb1 = RFB_modified(64, channel)
+        self.rfb1 = BasicConv2d(64, channel,3,1,1)
         self.rfb2 = RFB_modified(128, channel)
         self.rfb3 = RFB_modified(320, channel)
         self.rfb4 = RFB_modified(512, channel)

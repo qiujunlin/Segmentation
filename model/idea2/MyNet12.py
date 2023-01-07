@@ -236,183 +236,174 @@ class MSCA(nn.Module):
 
         return wei
 
-class BGA(nn.Module):
-    def __init__(self, channel,groups=8):
-        super(BGA, self).__init__()
 
-        self.groups=groups
-        sc_channel = (channel // groups + 1) * groups
-        self.convforground= BasicConv2d(sc_channel,sc_channel,3,padding=1)
-        self.convboundary = BasicConv2d(sc_channel,sc_channel,3,padding=1)
-        self.convbackground = BasicConv2d(sc_channel,sc_channel,3,padding=1)
-        self.convcontact = BasicConv2d(sc_channel*2,channel,3,padding=1)
-        self.msca = MSCA(channel)
+class ASPP(nn.Module):
+    """
+    ASPP模块
+    """
+    def __init__(self, in_channels, out_channels):
+        super(ASPP, self).__init__()
+        self.pyramid1 = nn.Sequential(nn.Conv2d(in_channels=in_channels,out_channels=out_channels, kernel_size = 1, bias=False),
+                                      nn.BatchNorm2d(num_features=out_channels),
+                                      nn.ReLU(inplace=True)
+                                     )
+        self.pyramid2 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=6, dilation=6, bias=False),
+                                      nn.BatchNorm2d(num_features=out_channels),
+                                      nn.ReLU(inplace=True)
+                                     )
+        self.pyramid3 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=12, dilation=12,bias=False),
+                                      nn.BatchNorm2d(num_features=out_channels),
+                                      nn.ReLU(inplace=True)
+                                     )
+        self.pyramid4 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=18, dilation=18,bias=False),
+                                      nn.BatchNorm2d(num_features=out_channels),
+                                      nn.ReLU(inplace=True)
+                                     )
+        self.pooling = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)),
+                                     nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, bias=False),
+                                     nn.BatchNorm2d(num_features=out_channels),
+                                     nn.ReLU(inplace=True)
+                                    )
+        self.output = nn.Sequential(nn.Conv2d(in_channels=5*out_channels, out_channels=out_channels, kernel_size=1, bias=False),
+                                    nn.BatchNorm2d(num_features=out_channels),
+                                    nn.ReLU(inplace=True),
+                                    nn.Dropout(0.5)
+                                   )
+        self._initialize_weights()
 
-
-    def split_and_concate(self, x1, x2):
-        N, C, H, W = x1.shape
-        x2 = x2.repeat(1, self.groups, 1, 1)
-        x1 = x1.reshape(N, self.groups, C // self.groups, H, W)
-        x2 = x2.unsqueeze(2)
-        x = torch.cat([x1, x2], dim=2)
-        x = x.reshape(N, -1, H, W)
-        return x
-    def forward(self, x, edge,mask):
-        residual =x
-        if x.size() != edge.size():
-            edge = F.interpolate(edge, x.size()[2:], mode='bilinear', align_corners=False)
-        if x.size() != mask.size():
-            mask = F.interpolate(mask, x.size()[2:], mode='bilinear', align_corners=False)
-        edge_attention = torch.sigmoid(edge)
-        mask_attention = torch.sigmoid(mask)
-
-
-        # foregound
-        foregound_att = mask_attention
-        foregound_x = x * foregound_att
-
-        # background
-        background_att = 1 - mask_attention
-        background_x = x * background_att
-
-
-        weight =  self.msca(foregound_x+background_x)
-
-        foregound_x = weight*foregound_x
-        background_x = (1-weight)*background_x
-
-
-        background_x =    self.convbackground(self.split_and_concate(background_x,edge_attention))
-        foregound_x =    self.convforground(self.split_and_concate(foregound_x,edge_attention))
-
-        mask_feature = torch.cat(( background_x,foregound_x), dim=1)
-
-        out = self.convcontact(mask_feature) + residual
-
-
+    def forward(self, input):
+        y1 = self.pyramid1(input)
+        y2 = self.pyramid2(input)
+        y3 = self.pyramid3(input)
+        y4 = self.pyramid4(input)
+        y5 = F.interpolate(self.pooling(input), size=y4.size()[2:], mode='bilinear', align_corners=True)
+        out = self.output(torch.cat([y1,y2,y3,y4,y5],1))
         return out
 
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.kaiming_normal_(m.weight)
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
-class aggregation(nn.Module):
-    # dense aggregation, it can be replaced by other aggregation previous, such as DSS, amulet, and so on.
-    # used after MSF
-    def __init__(self, channel):
-        super(aggregation, self).__init__()
-        self.relu = nn.ReLU(True)
-
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.conv_upsample1 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample2 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample3 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample4 = BasicConv2d(channel, channel, 3, padding=1)
-        self.conv_upsample5 = BasicConv2d(2*channel, 2*channel, 3, padding=1)
-
-        self.conv_concat2 = BasicConv2d(2*channel, 2*channel, 3, padding=1)
-        self.conv_concat3 = BasicConv2d(3*channel, 3*channel, 3, padding=1)
-        self.conv4 = BasicConv2d(3*channel, channel, 3, padding=1)
-        self.conv5 = nn.Conv2d(channel, 1, 1)
-
-    def forward(self, x1, x2, x3):
-        x1_1 = x1
-        x2_1 = self.conv_upsample1(self.upsample(x1)) * x2
-        x3_1 = self.conv_upsample2(self.upsample(self.upsample(x1))) \
-               * self.conv_upsample3(self.upsample(x2)) * x3
-
-        x2_2 = torch.cat((x2_1, self.conv_upsample4(self.upsample(x1_1))), 1)
-        x2_2 = self.conv_concat2(x2_2)
-
-        x3_2 = torch.cat((x3_1, self.conv_upsample5(self.upsample(x2_2))), 1)
-        x3_2 = self.conv_concat3(x3_2)
-
-        agg = self.conv4(x3_2)
-        edge = self.conv5(agg)
-
-        return agg,edge
 
 
 class Fusion(nn.Module):
-    def __init__(self, channel):
+    def __init__(self, inchannel, channel):
         super(Fusion, self).__init__()
-        self.relu = nn.ReLU(inplace=True)
-
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.conv_upsample = BasicConv2d(channel, channel, 3, padding=1)
-        self.cat_conv1 = BasicConv2d(channel*2, channel, 3, padding=1)
-        self.cat_conv2 = BasicConv2d(channel, channel, 3, padding=1)
-
-
-    def forward(self, x_low, x_high):
-        x_cat = torch.cat((x_low, x_high), dim=1)
-        x_cat = self.cat_conv1(x_cat)
-        return x_cat
-
-class SideoutBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
-        super(SideoutBlock, self).__init__()
-
-        self.conv1 = BasicConv2d(in_channels, in_channels // 4, kernel_size=kernel_size,
-                               stride=stride, padding=padding)
-
-        self.dropout = nn.Dropout2d(0.1)
-
-        self.conv2 = nn.Conv2d(in_channels // 4, out_channels, 1)
+        self.conv1_1 = BasicConv2d(inchannel , channel,3,1,1)
+        self.conv3_1 = BasicConv2d(channel // 4, channel // 4, 3,padding=1)
+        self.dconv5_1 = BasicConv2d(channel // 4, channel // 4, 3, dilation=2,padding=2)
+        self.dconv7_1 = BasicConv2d(channel // 4, channel // 4, 3, dilation=3,padding=3)
+        self.dconv9_1 = BasicConv2d(channel // 4, channel // 4, 3, dilation=4,padding=4)
+        self.conv1_2 = BasicConv2d(channel, channel,3,1,1)
+        self.conv3_3 = BasicConv2d(channel, channel, 3,1,1)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.dropout(x)
-        x = self.conv2(x)
+        x = self.conv1_1(x)
+        xc = torch.chunk(x, 4, dim=1)
+        x0 = self.conv3_1(xc[0] + xc[1])
+        x1 = self.dconv5_1(xc[1] + x0 + xc[2])
+        x2 = self.dconv7_1(xc[2] + x1 + xc[3])
+        x3 = self.dconv9_1(xc[3] + x2)
+        xx = self.conv1_2(torch.cat((x0, x1, x2, x3), dim=1))
+        x = self.conv3_3(x + xx)
+
         return x
+class Decoder(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
+        super(SideoutBlock, self).__init__()
+        self.conv1 = BasicConv2d(in_channels, in_channels , kernel_size=kernel_size,
+                               stride=stride, padding=padding)
+        self.conv2 = nn.Conv2d(in_channels , out_channels, 1)
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        return self.upsample(x)
+
+class External_attention(nn.Module):
+        def __init__(self, in_c):
+            super().__init__()
+
+            self.conv1 = nn.Conv2d(in_c, in_c, 1)
+
+            self.k = in_c * 4
+            self.linear_0 = nn.Conv1d(in_c, self.k, 1, bias=False)
+
+            self.linear_1 = nn.Conv1d(self.k, in_c, 1, bias=False)
+            self.linear_1.weight.data = self.linear_0.weight.data.permute(1, 0, 2)
+
+            self.conv2 = nn.Conv2d(in_c, in_c, 1, bias=False)
+            self.norm_layer = nn.GroupNorm(4, in_c)
+
+        def forward(self, x):
+            idn = x
+            x = self.conv1(x)
+
+            b, c, h, w = x.size()
+            x = x.view(b, c, h * w)  # b * c * n
+
+            attn = self.linear_0(x)  # b, k, n
+            attn = F.softmax(attn, dim=-1)  # b, k, n
+
+            attn = attn / (1e-9 + attn.sum(dim=1, keepdim=True))  # # b, k, n
+            x = self.linear_1(attn)  # b, c, n
+
+            x = x.view(b, c, h, w)
+            x = self.norm_layer(self.conv2(x))
+            x = x + idn
+            x = F.gelu(x)
+            return x
 
 class MyNet11(nn.Module):
     # res2net based encoder decoder
-    def __init__(self, channel=32,numclass=1):
+    def __init__(self, channel=64,numclass=1):
         super(MyNet11, self).__init__()
         # ---- ResNet Backbone ----,
         self.resnet = res2net50_v1b_26w_4s(pretrained=True)
 
-        # ---- Receptive Field Block like module ----
-        self.rfb1 = RFB_modified(256, channel)
-        self.rfb2 = RFB_modified(512, channel)
-        self.rfb3 = RFB_modified(1024, channel)
-        self.rfb4 = RFB_modified(2048, channel)
-        self.rfb0 = RFB_modified(64, channel)
-        # ---- Partial Decoder ----
 
-        self.segout4 = SideoutBlock (channel,1,3,padding=1)
-        self.segout3 = SideoutBlock(channel,1,3,padding=1)
-        self.segout2 = SideoutBlock(channel,1,3,padding=1)
-        self.segout1 = SideoutBlock(channel,1,3,padding=1)
-        self.segout0 = SideoutBlock(channel,1,3,padding=1)
 
 
         self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
         self.upsample2 = nn.Upsample(scale_factor=8, mode='bilinear')
         self.upsample3 = nn.Upsample(scale_factor=16, mode='bilinear')
-        self.upsample4 = nn.Upsample(scale_factor=0.25, mode='bilinear')
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
+        self.down2 = nn.Upsample(scale_factor=0.25, mode='bilinear')
+        self.down3 = nn.Upsample(scale_factor=0.125, mode='bilinear')
+        self.down1 = nn.Upsample(scale_factor=0.5, mode='bilinear')
 
 
-        self.combine1 = Fusion(channel)
-        self.combine2 = Fusion(channel)
-        self.combine3 = Fusion(channel)
+
+        self.aspp = ASPP(in_channels=2048,out_channels=64)
+
+        self.fuse = BasicConv2d(channel*4,channel,3,1,1)
+        self.out = BasicConv2d(channel,1,3,1,1)
+        self.fuseatt1 = External_attention(in_c=channel)
+        self.fuseatt2 = External_attention(in_c=channel)
+        self.fuseatt3 = External_attention(in_c=channel)
+        self.fuseatt4 = External_attention(in_c=channel)
 
 
-        self.BGA2 =BGA(channel)
-        self.BGA3 =BGA(channel)
-        self.BGA4 =BGA(channel)
-        self.BGA1 =BGA(channel)
-        self.BGA0 =BGA(channel)
-
-        self.fuse4 = Fusion(channel=channel)
-        self.fuse3 = Fusion(channel=channel)
-        self.fuse2 = Fusion(channel=channel)
-        self.fuse1 = Fusion(channel=channel)
-        self.fuse0 = Fusion(channel=channel)
+        self.rfb1 = RFB_modified(256,out_channel=channel)
+        self.rfb2 = RFB_modified(512,out_channel=channel)
+        self.rfb3 = RFB_modified(1024,out_channel=channel)
+        self.rfb4 = RFB_modified(2048,out_channel=channel)
 
 
-        self.boundary_decoder =  BoundaryDecoder(256)
 
-        self.agg =aggregation(channel)
+        self.exatt1 = External_attention(64)
+        self.exatt2 = External_attention(64)
+        self.exatt3 = External_attention(64)
+        self.exatt4 = External_attention(64)
+
+        self.ca=  channel_attention(64)
+        self.sa=  spatial_attention()
+
+
 
 
 
@@ -429,55 +420,31 @@ class MyNet11(nn.Module):
         x3 = self.resnet.layer3(x2)  # bs, 1024, 22, 22
         x4 = self.resnet.layer4(x3)  # bs, 2048, 11, 11
 
-        edge = self.boundary_decoder(x1, x2, x3, x4)
-
         x1 = self.rfb1(x1)
-        x2=  self.rfb2(x2)
+        x2 = self.rfb2(x2)
         x3 = self.rfb3(x3)
         x4 = self.rfb4(x4)
-        x = self.rfb0(x)
 
-        out4 = self.segout4(x4)
+        x1_c =  x1+self.upsample(x2)+self.upsample1(x3)+self.upsample2(x4)
+        x2_c = self.down1(x1)+x2+self.upsample(x3)+self.upsample1(x4)
+        x3_c = self.down2(x1)+self.down1(x2)+x3+self.upsample(x4)
+        x4_c = self.down3(x1)+self.down2(x2)+self.down1(x3)+x4
 
-        predict4 = F.interpolate(out4, scale_factor=32,
-                                      mode='bilinear')
-
-        x3 = self.BGA3(x3,edge,out4)
-        x3 = self.fuse3(x3, self.upsample(x4))
-        out3 = self.segout3(x3)
-
-        predict3 = F.interpolate(out3, scale_factor=16,mode='bilinear')
-
-        x2 = self.BGA2(x2, edge, out3)
+        fuse1 = self.fuseatt1(x1_c)
+        fuse2 = self.fuseatt2(x2_c)
+        fuse3 = self.fuseatt3(x3_c)
+        fuse4 = self.fuseatt4(x4_c)
 
 
-        x2 = self.fuse2(x2,self.upsample(x3))
-        out2 = self.segout2(x2)
+        fuse = torch.cat((fuse1,self.upsample(fuse2),self.upsample1(fuse3),self.upsample2(fuse4)),dim=1)
+
+        fuse =self.fuse(fuse)
+        fuse =self.ca(fuse)
+        fuse =self.sa(fuse)
+        fuse =self.out(fuse)
 
 
-        predict2 = F.interpolate(out2, scale_factor=8,
-                                 mode='bilinear')
-
-        edge =self.upsample1(edge)
-
-
-        x1 =  self.BGA1(x1,edge,out2)
-
-
-        x1 =self.fuse1(x1,self.upsample(x2))
-
-        out1 = self.segout1(x1)
-
-        predict1 = F.interpolate(out1,scale_factor=4,mode='bilinear')
-
-        x =  self.BGA0(x,edge,out1)
-        x = self.fuse0(x,x1)
-        out0 = self.segout0(x)
-
-        predict0 = F.interpolate(out0, scale_factor=4, mode='bilinear')
-
-
-        return predict0, predict1, predict2,predict3,predict4,edge
+        return  self.upsample1(fuse)
 
 
 
@@ -495,20 +462,22 @@ if __name__ == '__main__':
     model = MyNet11().cuda()
     # print(torch.cuda.is_available() )
     input_tensor = torch.randn(4, 3, 352, 352).cuda()
-    # # a,b= model(input_tensor)
-    # # print(a.size())
-    # # print(b.size())
-    a,b,c,d,e,F= model(input_tensor)
+    # down1 = nn.Upsample(scale_factor=0.25, mode='bilinear')
+    # print(down1(input_tensor).size())
+    a= model(input_tensor)
     print(a.size())
-    print(b.size())
-    print(c.size())
-    print(d.size())
-    print(e.size())
-    print(f.size())
+    # # print(b.size())
+   # a= model(input_tensor)
+   # print(a.size())
+    # print(b.size())
+    # print(c.size())
+    # print(d.size())
+    # print(e.size())
+    # print(f.size())
     # print(f.size())
     # print(g.size())
     # print(h.size())
-    summary(model=model, input_size=(3, 352, 352), batch_size=-1, device='cuda')
+  #  summary(model=model, input_size=(3, 352, 352), batch_size=-1, device='cuda')
 
     # aspp = ASPP(in_channels=512,out_channels=512)
     # out = torch.rand(2, 512, 13, 13)
