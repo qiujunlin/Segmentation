@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from model.backbone.Res2Net import res2net50_v1b_26w_4s
-from model.backbone.pvtv2 import pvt_v2_b2
+
 
 import torch.nn.init as init
 
@@ -46,22 +46,50 @@ class spatial_attention(nn.Module):
 class BCA(nn.Module):
     def __init__(self, xin_channels, yin_channels, mid_channels, BatchNorm=nn.BatchNorm2d, scale=False):
         super(BCA, self).__init__()
-        self.conv1 = BasicConv2d(xin_channels,yin_channels,kernel_size=3,stride=1,padding=1)
-        self.conv2 = BasicConv2d(xin_channels,xin_channels,kernel_size=3,stride=1,padding=1)
+        self.conv1 = BasicConv2d(xin_channels+yin_channels,xin_channels+yin_channels,kernel_size=3,stride=1,padding=1)
+        self.conv2 = BasicConv2d(xin_channels+yin_channels,xin_channels,kernel_size=3,stride=1,padding=1)
 
         self.ca = channel_attention(xin_channels)
         self.sa = spatial_attention()
 
 
     def forward(self, x, y):
-        z = torch.sigmoid(y) * x
-       # z =self.conv1(z)
+        z = torch.cat([x,y],dim=1)
+        z =self.conv1(z)
         z =self.conv2(z)
         z =self.ca(z)
         z =self.sa(z)
 
-
         return z
+
+
+
+class CAM(nn.Module):
+    def __init__(self, channel):
+        super(CAM, self).__init__()
+        self.down = BasicConv2d(channel,channel,kernel_size=3,stride=2,padding=1)
+        self.conv1 = BasicConv2d(channel,channel,kernel_size=3,stride=1,padding=1)
+        self.conv2 = BasicConv2d(channel,channel,kernel_size=3,stride=1,padding=1)
+
+
+
+    def forward(self, x_high, x_low):
+        # x_low: H W C
+        # x_hight: H/2 W/2 C
+        left_1 = x_high
+        left_2 = F.interpolate(x_high, size=x_low.size()[2:],
+                               mode='bilinear', align_corners=True)
+        right_1 = F.relu(self.down(x_low), inplace=True)
+        right_2 = x_low
+
+        left =  self.conv1(left_1*right_1)
+        right = self.conv2(left_2*right_2)
+
+        left = F.interpolate(left, size=x_low.size()[2:],
+                             mode='bilinear', align_corners=True)
+        out = left+right
+        return out
+
 
 class BasicConv2d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1,relu=True):
@@ -80,11 +108,79 @@ class BasicConv2d(nn.Module):
         return x
 
 
+"""
+Non Local Block
+
+https://arxiv.org/abs/1711.07971
+"""
 
 
-class RFB_modified(nn.Module):
+class NonLocalBlock(nn.Module):
+    def __init__(self, in_channels, inter_channels=None, sub_sample=True, bn_layer=True):
+        super(NonLocalBlock, self).__init__()
+
+        self.sub_sample = sub_sample
+
+        self.in_channels = in_channels
+        self.inter_channels = inter_channels
+
+        if self.inter_channels is None:
+            self.inter_channels = in_channels // 2
+            if self.inter_channels == 0:
+                self.inter_channels = 1
+
+        self.g = nn.Conv2d(in_channels=self.in_channels, out_channels=self.inter_channels,
+                           kernel_size=1, stride=1, padding=0)
+
+        if bn_layer:
+            self.W = nn.Sequential(
+                nn.Conv2d(in_channels=self.inter_channels, out_channels=self.in_channels,
+                          kernel_size=1, stride=1, padding=0),
+                nn.BatchNorm2d(self.in_channels)
+            )
+            nn.init.constant_(self.W[1].weight, 0)
+            nn.init.constant_(self.W[1].bias, 0)
+        else:
+            self.W = nn.Conv2d(in_channels=self.inter_channels, out_channels=self.in_channels,
+                               kernel_size=1, stride=1, padding=0)
+            nn.init.constant_(self.W.weight, 0)
+            nn.init.constant_(self.W.bias, 0)
+
+        self.theta = nn.Conv2d(in_channels=self.in_channels, out_channels=self.inter_channels,
+                               kernel_size=1, stride=1, padding=0)
+        self.phi = nn.Conv2d(in_channels=self.in_channels, out_channels=self.inter_channels,
+                             kernel_size=1, stride=1, padding=0)
+
+        if sub_sample:
+            self.g = nn.Sequential(self.g, nn.MaxPool2d(kernel_size=(2, 2)))
+            self.phi = nn.Sequential(self.phi, nn.MaxPool2d(kernel_size=(2, 2)))
+
+    def forward(self, x):
+
+        batch_size = x.size(0)
+
+        g_x = self.g(x).view(batch_size, self.inter_channels, -1)
+        g_x = g_x.permute(0, 2, 1)
+
+        theta_x = self.theta(x).view(batch_size, self.inter_channels, -1)
+        theta_x = theta_x.permute(0, 2, 1)
+        phi_x = self.phi(x).view(batch_size, self.inter_channels, -1)
+        f = torch.matmul(theta_x, phi_x)
+        f_div_C = F.softmax(f, dim=-1)
+
+        y = torch.matmul(f_div_C, g_x)
+        y = y.permute(0, 2, 1).contiguous()
+        y = y.view(batch_size, self.inter_channels, *x.size()[2:])
+        W_y = self.W(y)
+        z = W_y + x
+
+        return z
+
+
+
+class RFB_modifiedA(nn.Module):
     def __init__(self, in_channel, out_channel):
-        super(RFB_modified, self).__init__()
+        super(RFB_modifiedA, self).__init__()
         self.relu = nn.ReLU(True)
         self.branch0 = nn.Sequential(
             nn.Conv2d(in_channel, out_channel, 1),
@@ -128,6 +224,54 @@ class RFB_modified(nn.Module):
         x = self.relu(x_cat + self.conv_res(x))
         x=self.sa(x)
         return x
+
+class RFB_modifiedB(nn.Module):
+    def __init__(self, in_channel, out_channel):
+        super(RFB_modifiedB, self).__init__()
+        self.relu = nn.ReLU(True)
+        self.branch0 = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, 1),
+
+        )
+        self.branch1 = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, 1),
+            nn.Conv2d(out_channel, out_channel, kernel_size=(1, 3), padding=(0, 1)),
+            nn.Conv2d(out_channel, out_channel, kernel_size=(3, 1), padding=(1, 0)),
+            nn.BatchNorm2d(out_channel),
+            nn.Conv2d(out_channel, out_channel, 3, padding=3, dilation=3),
+        )
+        self.branch2 = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, 1),
+            nn.Conv2d(out_channel, out_channel, kernel_size=(1, 5), padding=(0, 2)),
+            nn.Conv2d(out_channel, out_channel, kernel_size=(5, 1), padding=(2, 0)),
+            nn.BatchNorm2d(out_channel),
+            nn.Conv2d(out_channel, out_channel, 3, padding=5, dilation=5),
+        )
+        self.branch3 = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, 1),
+            nn.Conv2d(out_channel, out_channel, kernel_size=(1, 7), padding=(0, 3)),
+            nn.Conv2d(out_channel, out_channel, kernel_size=(7, 1), padding=(3, 0)),
+            nn.BatchNorm2d(out_channel),
+            nn.Conv2d(out_channel, out_channel, 3, padding=7, dilation=7),
+        )
+        self.conv_cat = nn.Conv2d(4 * out_channel, out_channel, 3, padding=1)
+        self.conv_res = nn.Sequential(
+            nn.Conv2d(in_channel, out_channel, 1),
+            nn.BatchNorm2d(out_channel),
+            NonLocalBlock(out_channel)
+        )
+
+
+    def forward(self, x):
+        x0 = self.branch0(x)
+        x1 = self.branch1(x)
+        x2 = self.branch2(x)
+        x3 = self.branch3(x)
+        x_cat = self.conv_cat(torch.cat((x0, x1, x2, x3), 1))
+        x = self.relu(x_cat + self.conv_res(x))
+        return x
+
+
 class SideoutBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
         super(SideoutBlock, self).__init__()
@@ -170,10 +314,10 @@ class DecoderBlock(nn.Module):
                  kernel_size=3, stride=1, padding=1):
         super(DecoderBlock, self).__init__()
 
-        self.conv1 = BasicConv2d(in_channels, in_channels , kernel_size=kernel_size,
+        self.conv1 = BasicConv2d(in_channels, in_channels //4, kernel_size=kernel_size,
                                stride=stride, padding=padding,relu=True)
 
-        self.conv2 = BasicConv2d(in_channels   , out_channels, kernel_size=kernel_size,
+        self.conv2 = BasicConv2d(in_channels   //4, out_channels, kernel_size=kernel_size,
                                stride=stride, padding=padding,relu=True)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
@@ -186,81 +330,23 @@ class DecoderBlock(nn.Module):
         return x
 
 
-class ASPP(nn.Module):
-    """
-    ASPP模块
-    """
-    def __init__(self, in_channels, out_channels):
-        super(ASPP, self).__init__()
-        self.pyramid1 = nn.Sequential(nn.Conv2d(in_channels=in_channels,out_channels=out_channels, kernel_size = 1, bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid2 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=6, dilation=6, bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid3 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=12, dilation=12,bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid4 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=18, dilation=18,bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pooling = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)),
-                                     nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, bias=False),
-                                     nn.BatchNorm2d(num_features=out_channels),
-                                     nn.ReLU(inplace=True)
-                                    )
-        self.output = nn.Sequential(nn.Conv2d(in_channels=5*out_channels, out_channels=out_channels, kernel_size=1, bias=False),
-                                    nn.BatchNorm2d(num_features=out_channels),
-                                    nn.ReLU(inplace=True),
-                                    nn.Dropout(0.5)
-                                   )
-        self._initialize_weights()
-
-    def forward(self, input):
-        y1 = self.pyramid1(input)
-        y2 = self.pyramid2(input)
-        y3 = self.pyramid3(input)
-        y4 = self.pyramid4(input)
-        y5 = F.interpolate(self.pooling(input), size=y4.size()[2:], mode='bilinear', align_corners=True)
-        out = self.output(torch.cat([y1,y2,y3,y4,y5],1))
-        return out
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
 
 
-
-
-class MyNet6(nn.Module):
+class MyNet4(nn.Module):
     # res2net based encoder decoder
     def __init__(self, channel=64,numclass=1):
-        super(MyNet6, self).__init__()
+        super(MyNet4, self).__init__()
         # ---- ResNet Backbone ----,
-        self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]
-        path = '/root/autodl-fs/pvt_v2_b3.pth'
-        save_model = torch.load(path)
-        model_dict = self.backbone.state_dict()
-        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        model_dict.update(state_dict)
-        self.backbone.load_state_dict(model_dict)
+        self.resnet = res2net50_v1b_26w_4s(pretrained=True)
         # ---- Receptive Field Block like module ----
-        self.rfb1_1 = RFB_modified(64, channel)
-        self.rfb2_1 = RFB_modified(128, channel)
-        self.rfb3_1 = RFB_modified(320, channel)
+        self.rfb1_1 = RFB_modifiedA(256+64, channel)
+        self.rfb2_1 = RFB_modifiedA(512, channel)
+        self.rfb3_1 = RFB_modifiedA(1024, channel)
 
-        self.rfb1_2 = RFB_modified(64, channel)
-        self.rfb2_2 = RFB_modified(128, channel)
-        self.rfb3_2 = RFB_modified(320, channel)
-        self.rfb4 = RFB_modified(512, channel)
+        self.rfb1_2 = RFB_modifiedA(256+64, channel)
+        self.rfb2_2 = RFB_modifiedA(512, channel)
+        self.rfb3_2 = RFB_modifiedA(1024, channel)
+        self.rfb4 = RFB_modifiedB(2048, channel)
         # ---- Partial Decoder ----
 
         self.out1 = BasicConv2d(channel, channel, kernel_size=3, padding=1)
@@ -292,7 +378,6 @@ class MyNet6(nn.Module):
         self.bdatt1 =BCA(xin_channels=channel,yin_channels=channel,mid_channels=channel)
 
 
-#        self.aspp =ASPP(in_channels=2048,out_channels=channel)
 
         self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
         self.upsample2 = nn.Upsample(scale_factor=8, mode='bilinear')
@@ -311,23 +396,31 @@ class MyNet6(nn.Module):
 
 
     def forward(self, x):
-        pvt = self.backbone(x)
-        x1 = pvt[0]  # 1 64 88 88
-        x2 = pvt[1]  # 1 128 44 44
-        x3 = pvt[2]  # 1 320 22 22
-        x4 = pvt[3]  # 1 512 11 11
+        x = self.resnet.conv1(x)
+        x = self.resnet.bn1(x)
+        x = self.resnet.relu(x)
+        x = self.resnet.maxpool(x)      # bs, 64, 88, 88
+        # ---- low-level features ----
+        x1 = self.resnet.layer1(x)      # bs, 256, 88, 88
+        x2 = self.resnet.layer2(x1)     # bs, 512, 44, 44
+
+        x3 = self.resnet.layer3(x2)     # bs, 1024, 22, 22
+        x4 = self.resnet.layer4(x3)     # bs, 2048, 11, 11
 
 
-        x1_1 = self.rfb1_1(x1)
+        x1_1 = self.rfb1_1(torch.cat((x,x1),dim=1))
         x2_1 = self.rfb2_1(x2)
         x3_1 = self.rfb3_1(x3)
 
-        x1_2 = self.rfb1_2(x1)
+        x1_2 = self.rfb1_2(torch.cat((x,x1),dim=1))
         x2_2 = self.rfb2_2(x2)
         x3_2 = self.rfb3_2(x3)
 
 
         x4 = self.rfb4(x4)
+
+
+
 
 
 
@@ -347,8 +440,7 @@ class MyNet6(nn.Module):
         boundary3 = self.boudout3(b3)  # bs ,1,22,22
         segmentation3 = self.segout3(d3)
 
-        d3 = self.bdatt3(d3, boundary3)  #) # bs, 1024, 22, 22
-
+        d3 = self.bdatt3(d3, b3)  #) # bs, 1024, 22, 22
 
         d3=self.decoder_s3(d3)       # bs, 1024, 22, 22
         b3=self.decoder_b3(b3)       # bs, 1024, 22, 22
@@ -360,12 +452,10 @@ class MyNet6(nn.Module):
         boundary2 = self.boudout2(b2)
         segmentation2 = self.segout2(d2)
 
-        d2 = self.bdatt2(d2, boundary2)
-
+        d2 = self.bdatt2(d2, b2)
 
         d2=self.decoder_s2(d2)
-        b2=self.decoder_b2(b3)
-
+        b2=self.decoder_b2(b2)
 
 
         d1=self.combine1_1(torch.cat((d2,x1_1),dim=1))
@@ -375,8 +465,7 @@ class MyNet6(nn.Module):
         boundary1 = self.boudout1(b1)
         segmentation1 = self.segout1(d1)
 
-        d1 = self.bdatt1(d1, boundary1)
-
+        d1 = self.bdatt1(d1, b1)
         d1=self.decoder_s1(d1)
         b1 = self.decoder_b1(b1)
 
@@ -409,7 +498,7 @@ if __name__ == '__main__':
    # ras = PraNet().cuda()
     from torchsummary import summary
 
-    model = MyNet6().cuda()
+    model = MyNet4().cuda()
     # print(torch.cuda.is_available() )
     input_tensor = torch.randn(4, 3, 352, 352).cuda()
     # # a,b= model(input_tensor)

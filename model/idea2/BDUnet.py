@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from model.backbone.Res2Net import res2net50_v1b_26w_4s
-from model.backbone.pvtv2 import pvt_v2_b2
+
 
 import torch.nn.init as init
 
@@ -46,22 +46,50 @@ class spatial_attention(nn.Module):
 class BCA(nn.Module):
     def __init__(self, xin_channels, yin_channels, mid_channels, BatchNorm=nn.BatchNorm2d, scale=False):
         super(BCA, self).__init__()
-        self.conv1 = BasicConv2d(xin_channels,yin_channels,kernel_size=3,stride=1,padding=1)
-        self.conv2 = BasicConv2d(xin_channels,xin_channels,kernel_size=3,stride=1,padding=1)
+        self.conv1 = BasicConv2d(xin_channels+yin_channels,xin_channels+yin_channels,kernel_size=3,stride=1,padding=1)
+        self.conv2 = BasicConv2d(xin_channels+yin_channels,xin_channels,kernel_size=3,stride=1,padding=1)
 
         self.ca = channel_attention(xin_channels)
         self.sa = spatial_attention()
 
 
     def forward(self, x, y):
-        z = torch.sigmoid(y) * x
-       # z =self.conv1(z)
+        z = torch.cat([x,y],dim=1)
+        z =self.conv1(z)
         z =self.conv2(z)
         z =self.ca(z)
         z =self.sa(z)
 
-
         return z
+
+
+
+class CAM(nn.Module):
+    def __init__(self, channel):
+        super(CAM, self).__init__()
+        self.down = BasicConv2d(channel,channel,kernel_size=3,stride=2,padding=1)
+        self.conv1 = BasicConv2d(channel,channel,kernel_size=3,stride=1,padding=1)
+        self.conv2 = BasicConv2d(channel,channel,kernel_size=3,stride=1,padding=1)
+
+
+
+    def forward(self, x_high, x_low):
+        # x_low: H W C
+        # x_hight: H/2 W/2 C
+        left_1 = x_high
+        left_2 = F.interpolate(x_high, size=x_low.size()[2:],
+                               mode='bilinear', align_corners=True)
+        right_1 = F.relu(self.down(x_low), inplace=True)
+        right_2 = x_low
+
+        left =  self.conv1(left_1*right_1)
+        right = self.conv2(left_2*right_2)
+
+        left = F.interpolate(left, size=x_low.size()[2:],
+                             mode='bilinear', align_corners=True)
+        out = left+right
+        return out
+
 
 class BasicConv2d(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0, dilation=1,relu=True):
@@ -170,10 +198,10 @@ class DecoderBlock(nn.Module):
                  kernel_size=3, stride=1, padding=1):
         super(DecoderBlock, self).__init__()
 
-        self.conv1 = BasicConv2d(in_channels, in_channels , kernel_size=kernel_size,
+        self.conv1 = BasicConv2d(in_channels, in_channels //4 , kernel_size=kernel_size,
                                stride=stride, padding=padding,relu=True)
 
-        self.conv2 = BasicConv2d(in_channels   , out_channels, kernel_size=kernel_size,
+        self.conv2 = BasicConv2d(in_channels   //4, out_channels, kernel_size=kernel_size,
                                stride=stride, padding=padding,relu=True)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
@@ -186,81 +214,22 @@ class DecoderBlock(nn.Module):
         return x
 
 
-class ASPP(nn.Module):
-    """
-    ASPP模块
-    """
-    def __init__(self, in_channels, out_channels):
-        super(ASPP, self).__init__()
-        self.pyramid1 = nn.Sequential(nn.Conv2d(in_channels=in_channels,out_channels=out_channels, kernel_size = 1, bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid2 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=6, dilation=6, bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid3 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=12, dilation=12,bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid4 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=18, dilation=18,bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pooling = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)),
-                                     nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, bias=False),
-                                     nn.BatchNorm2d(num_features=out_channels),
-                                     nn.ReLU(inplace=True)
-                                    )
-        self.output = nn.Sequential(nn.Conv2d(in_channels=5*out_channels, out_channels=out_channels, kernel_size=1, bias=False),
-                                    nn.BatchNorm2d(num_features=out_channels),
-                                    nn.ReLU(inplace=True),
-                                    nn.Dropout(0.5)
-                                   )
-        self._initialize_weights()
 
-    def forward(self, input):
-        y1 = self.pyramid1(input)
-        y2 = self.pyramid2(input)
-        y3 = self.pyramid3(input)
-        y4 = self.pyramid4(input)
-        y5 = F.interpolate(self.pooling(input), size=y4.size()[2:], mode='bilinear', align_corners=True)
-        out = self.output(torch.cat([y1,y2,y3,y4,y5],1))
-        return out
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-
-
-
-
-class MyNet6(nn.Module):
+class BDUnet(nn.Module):
     # res2net based encoder decoder
     def __init__(self, channel=64,numclass=1):
-        super(MyNet6, self).__init__()
+        super(BDUnet, self).__init__()
         # ---- ResNet Backbone ----,
-        self.backbone = pvt_v2_b2()  # [64, 128, 320, 512]
-        path = '/root/autodl-fs/pvt_v2_b3.pth'
-        save_model = torch.load(path)
-        model_dict = self.backbone.state_dict()
-        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        model_dict.update(state_dict)
-        self.backbone.load_state_dict(model_dict)
+        self.resnet = res2net50_v1b_26w_4s(pretrained=True)
         # ---- Receptive Field Block like module ----
-        self.rfb1_1 = RFB_modified(64, channel)
-        self.rfb2_1 = RFB_modified(128, channel)
-        self.rfb3_1 = RFB_modified(320, channel)
+        self.rfb1_1 = RFB_modified(256+64, channel)
+        self.rfb2_1 = RFB_modified(512, channel)
+        self.rfb3_1 = RFB_modified(1024, channel)
 
-        self.rfb1_2 = RFB_modified(64, channel)
-        self.rfb2_2 = RFB_modified(128, channel)
-        self.rfb3_2 = RFB_modified(320, channel)
-        self.rfb4 = RFB_modified(512, channel)
+        self.rfb1_2 = RFB_modified(256+64, channel)
+        self.rfb2_2 = RFB_modified(512, channel)
+        self.rfb3_2 = RFB_modified(1024, channel)
+        self.rfb4 = RFB_modified(2048, channel)
         # ---- Partial Decoder ----
 
         self.out1 = BasicConv2d(channel, channel, kernel_size=3, padding=1)
@@ -292,8 +261,6 @@ class MyNet6(nn.Module):
         self.bdatt1 =BCA(xin_channels=channel,yin_channels=channel,mid_channels=channel)
 
 
-#        self.aspp =ASPP(in_channels=2048,out_channels=channel)
-
         self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
         self.upsample2 = nn.Upsample(scale_factor=8, mode='bilinear')
         self.upsample3 = nn.Upsample(scale_factor=16, mode='bilinear')
@@ -311,23 +278,31 @@ class MyNet6(nn.Module):
 
 
     def forward(self, x):
-        pvt = self.backbone(x)
-        x1 = pvt[0]  # 1 64 88 88
-        x2 = pvt[1]  # 1 128 44 44
-        x3 = pvt[2]  # 1 320 22 22
-        x4 = pvt[3]  # 1 512 11 11
+        x = self.resnet.conv1(x)
+        x = self.resnet.bn1(x)
+        x = self.resnet.relu(x)
+        x = self.resnet.maxpool(x)      # bs, 64, 88, 88
+        # ---- low-level features ----
+        x1 = self.resnet.layer1(x)      # bs, 256, 88, 88
+        x2 = self.resnet.layer2(x1)     # bs, 512, 44, 44
+
+        x3 = self.resnet.layer3(x2)     # bs, 1024, 22, 22
+        x4 = self.resnet.layer4(x3)     # bs, 2048, 11, 11
 
 
-        x1_1 = self.rfb1_1(x1)
+        x1_1 = self.rfb1_1(torch.cat((x,x1),dim=1))
         x2_1 = self.rfb2_1(x2)
         x3_1 = self.rfb3_1(x3)
 
-        x1_2 = self.rfb1_2(x1)
+        x1_2 = self.rfb1_2(torch.cat((x,x1),dim=1))
         x2_2 = self.rfb2_2(x2)
         x3_2 = self.rfb3_2(x3)
 
 
         x4 = self.rfb4(x4)
+
+
+
 
 
 
@@ -347,8 +322,7 @@ class MyNet6(nn.Module):
         boundary3 = self.boudout3(b3)  # bs ,1,22,22
         segmentation3 = self.segout3(d3)
 
-        d3 = self.bdatt3(d3, boundary3)  #) # bs, 1024, 22, 22
-
+        d3 = self.bdatt3(d3, b3)  #) # bs, 1024, 22, 22
 
         d3=self.decoder_s3(d3)       # bs, 1024, 22, 22
         b3=self.decoder_b3(b3)       # bs, 1024, 22, 22
@@ -360,11 +334,10 @@ class MyNet6(nn.Module):
         boundary2 = self.boudout2(b2)
         segmentation2 = self.segout2(d2)
 
-        d2 = self.bdatt2(d2, boundary2)
-
+        d2 = self.bdatt2(d2, b2)
 
         d2=self.decoder_s2(d2)
-        b2=self.decoder_b2(b3)
+        b2=self.decoder_b2(b2)
 
 
 
@@ -375,8 +348,7 @@ class MyNet6(nn.Module):
         boundary1 = self.boudout1(b1)
         segmentation1 = self.segout1(d1)
 
-        d1 = self.bdatt1(d1, boundary1)
-
+        d1 = self.bdatt1(d1, b1)
         d1=self.decoder_s1(d1)
         b1 = self.decoder_b1(b1)
 
@@ -409,7 +381,7 @@ if __name__ == '__main__':
    # ras = PraNet().cuda()
     from torchsummary import summary
 
-    model = MyNet6().cuda()
+    model = MyNet4().cuda()
     # print(torch.cuda.is_available() )
     input_tensor = torch.randn(4, 3, 352, 352).cuda()
     # # a,b= model(input_tensor)

@@ -194,7 +194,7 @@ class Fusion(nn.Module):
         low = self.sigmoid(low_fuse) * low
         high = self.sigmoid(high_fuse) * high
 
-        fuse = self.fuseconv(low +self.upsample( high))
+        fuse = self.fuseconv(low * self.upsample( high))
 
         return  fuse
 

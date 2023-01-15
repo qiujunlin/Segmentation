@@ -25,10 +25,10 @@ from torch.autograd import Variable
 导入模型 数据加载
 """
 
-from dataset.Dataset1 import Dataset
-from dataset.Dataset1 import TestDataset
+from dataset.Dataset2 import Dataset
+from dataset.Dataset2 import TestDataset
 
-from model.idea2.MyNet11 import MyNet11
+from model.idea2.MyNet5 import MyNet5
 
 
 
@@ -50,9 +50,9 @@ def valid(model, dataset,args):
             gt = np.asarray(gt, np.float32)
             gt /= (gt.max() + 1e-8)
             image = image.cuda()
-            a, b, c, d, e= model(image)
+            a, b, c, d, e, f, g, h = model(image)
             # eval Dice
-            res = F.upsample(a, size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = F.upsample(e, size=gt.shape[2:], mode='bilinear', align_corners=False)
             res = res.sigmoid().data.cpu().numpy().squeeze()
             res = (res - res.min()) / (res.max() - res.min() + 1e-8)
             input = res
@@ -122,12 +122,14 @@ def train(args, model, optimizer,dataloader_train,total):
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                a, b, c, d, e =model(data)
+                a, b, c, d, e,f,g,h =model(data)
 
                 """
                 计算损失函数
                 """
-                loss = u.structure_loss(a,label)+u.structure_loss(b,label)+u.structure_loss(c,label)+u.structure_loss(d,label) +BCE(e,edgs)
+                lossb = bdm_loss(a,edgs) + bdm_loss(b,edgs) + bdm_loss(c,edgs) + bdm_loss(d,edgs)
+                lossg = u.structure_loss(e,label)+u.structure_loss(f,label)+u.structure_loss(g,label)+u.structure_loss(h,label)
+                loss = lossb +lossg
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)
@@ -150,13 +152,6 @@ def train(args, model, optimizer,dataloader_train,total):
             meandice = valid(model, 'test',args )
             print("dataset:{},Dice:{:.4f}".format("test", meandice))
             Dicedict['test'].append(meandice)
-            # if  Dicedict['Kvasir'][-1] > 0.92 and Dicedict['CVC-ClinicDB'] > 0.94 and Dicedict['CVC-ColonDB'] >0.8 and Dicedict['CVC-ColonDB'] and  Dicedict['ETIS-LaribPolypDB']>0.79 :
-            #     best_dice = meandice
-            #     best_epo = epoch
-            #     checkpoint_dir = "/root/autodl-fs/checkpoints"
-            #     filename = 'model_{}_{:03d}_{:.4f}.pth.tar'.format(args.net_work, epoch, best_dice)
-            #     checkpointpath = os.path.join(checkpoint_dir, filename)
-            #     torch.save(model.state_dict(), checkpointpath)
             if meandice > best_dice:
                 best_dice = meandice
                 best_epo =epoch
@@ -164,7 +159,6 @@ def train(args, model, optimizer,dataloader_train,total):
                 filename = 'model_{}_{:03d}_{:.4f}.pth.tar'.format(args.net_work, epoch,best_dice)
                 checkpointpath = os.path.join(checkpoint_dir, filename)
                 torch.save(model.state_dict(), checkpointpath)
-
                 print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
         print('bestepo:{:03d} ,bestdice :{:.4f}'.format(best_epo,best_dice))
 
@@ -193,7 +187,7 @@ def main():
     load model
     """
 
-    model_all={'MyNet11':MyNet11()}
+    model_all={'MyNet5':MyNet5()}
 
     model=model_all[args.net_work]
     print(args.net_work)

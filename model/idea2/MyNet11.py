@@ -423,8 +423,6 @@ class MyNet11(nn.Module):
 
 
 
-
-
         return  predict2,predict3,predict4,predict5,edge
 
 

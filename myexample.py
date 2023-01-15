@@ -396,40 +396,44 @@ def test11():
 from PIL import Image
 
 def test12():
-    dest ='F:\dataset\isic2018\dataset\masks'
+    dest ='F:\dataset\isic2018\TrainDataset\masks'
     path =r"F:\dataset\ISIC2018_Task1_Training_GroundTruth\ISIC2018_Task1_Training_GroundTruth"
     for f in os.listdir(path):
 
         sourcepath = os.path.join(path,f)
         img_array = cv2.imread(sourcepath, cv2.IMREAD_COLOR)
         # 调用cv2.resize函数resize图片
-        new_array = cv2.resize(img_array, (512,384), interpolation=cv2.INTER_CUBIC)
+        new_array = cv2.resize(img_array, (256,192), interpolation=cv2.INTER_CUBIC)
+      #  f = f.replace(".jpg", ".png")
         newpath =  os.path.join(dest,f)
+
         cv2.imwrite(newpath, new_array)
 
 
 def randchoice():
 
-    pathimg =  "E:\dataset\skin\skin\TestDataset\img"
-    pathmask =  "E:\dataset\skin\skin\TestDataset\mask"
-    destimg=  "E:\dataset\skin\skin\TrainDataset\images"
-    destmask=  "E:\dataset\skin\skin\TrainDataset\masks"
+    pathimg =  "F:\dataset\isic2018\TrainDataset\images"
+    pathmask =  "F:\dataset\isic2018\TrainDataset\masks"
+    destimg=  "F:\dataset\isic2018\TestDataset/test\images"
+    destmask=  "F:\dataset\isic2018\TestDataset/test/masks"
 
     imgs = []
     for x in os.listdir(pathimg):
-        if x.endswith('jpg'):
+        if x.endswith('png'):
             imgs.append(x)
-    selected_imgs = random.sample(imgs, k=259)
+    selected_imgs = random.sample(imgs, k=518)
     for img in selected_imgs :
 
         srcimg = os.path.join(pathimg, img)
-        maskname =  img.replace(".jpg","")
+        maskname =  img.replace(".png","")
         maskname =maskname+"_segmentation.png"
         srcmask = os.path.join(pathmask, maskname)
         dstim= os.path.join(destimg,   img)
         destm = os.path.join(destmask,   maskname)
         shutil.move(srcimg, dstim)
         shutil.move(srcmask, destm)
+
+
 def test13():
     destimg=  "E:\dataset\dataset-video\dataset\TestDataset\CVC-ColonDB-300\images"
   #  destmask=  "E:\dataset\dataset-video\dataset\TestDataset\CVC-ClinicDB-612-Valid\images"
@@ -615,7 +619,7 @@ def binary2edge(mask_path):
     return mask_edge
 def  test22():
     #for imagename in os.listdir("E:\dataset\dataset\TrainDataset\masks"):
-        imagename = "22.png"
+        imagename = "499.png"
         label_path = "E:\dataset\datasetnew\TrainDataset\masks/"+imagename
         label = cv2.imread(label_path, cv2.IMREAD_GRAYSCALE)  # GRAY 1 channel ndarray with shape H * W
    #     label = np.float32(label > 128)
@@ -628,13 +632,14 @@ def  test22():
         label =  cv2.dilate(label,np.ones((5, 5), np.uint8),1)
         cv2.imshow("1",  label)
         cv2.waitKey(0)
-
 if __name__ == '__main__':
-     model=Fusion(32)
-
-     a=torch.rand(2,32,256,256)
-     b=torch.rand(2,32,512,512)
-   #
-   #  print(a(b).size())
-     print(model(a,b))
-     print(model(a,b).size())
+    test22()
+# if __name__ == '__main__':
+#      model=Fusion(32)
+#
+#      a=torch.rand(2,32,256,256)
+#      b=torch.rand(2,32,512,512)
+#    #
+#    #  print(a(b).size())
+#      print(model(a,b))
+#      print(model(a,b).size())

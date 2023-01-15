@@ -5,25 +5,23 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
-from model import  BiDFNet
+from model.idea2.MyNet4 import  MyNet4
 from dataset.Dataset import  TestDataset
 import  cv2
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--testsize', type=int, default=(352,352), help='testing size')
-parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_BiDFNet_012_0.8403.pth.tar')
-# for _data_name in ['CVC-ClinicDB']:
-#for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
+parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet4_154_0.8297.pth.tar')
 if __name__ == '__main__':
 
  for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
- #for _data_name in ["CVC-ClinicDB-612-Test", "CVC-ClinicDB-612-Valid", "CVC-ColonDB-300"] :
  #or _data_name in ['test','val']:
-    data_path = r'E:\dataset\data\TestDataset\{}\\'.format(_data_name)
-    save_path = r'E:\dataset\data\TestDataset\{}\output/'.format(_data_name)
+    data_path = r'E:\dataset\dataset\TestDataset\{}\\'.format(_data_name)
+    save_path = r'E:\dataset\dataset\TestDataset\{}\output/'.format(_data_name)
+    edge_save_path = r'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
    # edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
-    model = BiDFNet()
+    model = MyNet4()
     model = torch.nn.DataParallel(model)
    # model.load_state_dict(torch.load(opt.pth_path)['state_dict'])
     model.load_state_dict(torch.load(opt.pth_path))
@@ -49,17 +47,19 @@ if __name__ == '__main__':
         gt /= (gt.max() + 1e-8)
       #  img =  img.permute(0,2,3,1)
         img = img.cuda()
-        prediction2,prediction1 = model(img)
-        res = F.upsample(prediction1+prediction2, size=gt.shape[2:], mode='bilinear', align_corners=False)
-        res = res.sigmoid().data.cpu().numpy().squeeze()
+        a,b,c,d,e,f,g,h = model(img)
+        pred = F.upsample(e, size=gt.shape[2:], mode='bilinear', align_corners=False)[0,0]
+        edge_pred = F.upsample(a, size=gt.shape[2:], mode='bilinear', align_corners=False)[0,0]
+        pred[torch.where(pred > 0)] /= (pred > 0).float().mean()
+        pred[torch.where(pred < 0)] /= (pred < 0).float().mean()
+        pred = torch.sigmoid(pred).cpu().detach().numpy() * 255
+        edge_pred = torch.sigmoid(edge_pred).cpu().detach().numpy() * 255
        # res =(res>0.5)
-        res = (res - res.min()) / (res.max() - res.min() + 1e-8)
+     #   res = (res - res.min()) / (res.max() - res.min() + 1e-8)
 
-        #path =save_path+  "".join(name)
-        cv2.imwrite(save_path+name[0], res*255)
+        #path =save_path+  "".join(name) 0.8995 0.9353 .9139 :0.7931 0.8135
+        #path =save_path+  "".join(name) 0.895 0.930 .911 :0.789 0.807
+        #path =save_path+  "".join(name) 0.895 0.931 .911 :0.791 0.807
+        cv2.imwrite(save_path+name[0], np.round(pred))
+        cv2.imwrite(edge_save_path+name[0], np.round(edge_pred))
 
-        # edge = F.upsample(redfine1, size=gt.shape[2:], mode='bilinear', align_corners=False)
-        # edge = edge.sigmoid().data.cpu().numpy().squeeze()
-        # edge = (edge - edge.min()) / (edge.max() - edge.min() + 1e-8)
-        #
-        # cv2.imwrite(edge_save_path + name[0], edge * 255)

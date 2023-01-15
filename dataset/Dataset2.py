@@ -11,7 +11,7 @@ from albumentations.pytorch import ToTensorV2
 from torchvision import transforms as T
 class Dataset(torch.utils.data.Dataset):
 
-    def __init__(self, dataset_path,w=352,h=352,augmentations = False,hasEdg =False):
+    def __init__(self, dataset_path,w=448,h=256,augmentations = False,hasEdg =False):
         super().__init__()
         self.augmentations = augmentations
         self.img_path=dataset_path+'/images/'
@@ -25,9 +25,9 @@ class Dataset(torch.utils.data.Dataset):
         if self.augmentations == True:
             print("use data augmentation!")
             self.transform = A.Compose([
-                A.OneOf([
-                    A.RandomResizedCrop(self.w, self.h, scale=(0.75, 1))
-                ], p=0.5),
+                # A.OneOf([
+                #     A.RandomResizedCrop(self.w, self.h, scale=(0.75, 1))
+                # ], p=0.5),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=45, p=0.5),
@@ -36,7 +36,7 @@ class Dataset(torch.utils.data.Dataset):
                                     min_width=None, fill_value=0, p=1),
                     A.GaussNoise(var_limit=(10.0, 50.0), mean=0, p=1),
                 ], p=0.5),
-                A.Resize(352, 352)
+                A.Resize(self.h, self.w)
             ])
 
         else:
@@ -63,32 +63,47 @@ class Dataset(torch.utils.data.Dataset):
         seed = np.random.randint(2147483647)  # make a seed with numpy generator
         random.seed(seed)  # apply this seed to img tranfsorms
         torch.manual_seed(seed)  # needed for torchvision 0.
+        label = np.float32(label > 128)
 
         total = self.transform(image=image, mask=label)
+
         image = total["image"]
         mask = total['mask']
+        total = A.ColorJitter(brightness=0.5, contrast=0.5, saturation=0, hue=0, p=0.3)(image=image)
+        image = total["image"]
+
+
+
+
         if self.edge_flage:
 
-            edge = self.binary2edge(mask)
-
-            return self.as_tensor(image),self.as_tensor2(mask), self.as_tensor2(edge)
+            edge = self.distribution_map(mask,0.5)
+         #   mask = mask / 255.0
+          #  edge = edge / 255.0
+            # cv2.imwrite("E:/1.png",mask)
+        #    cv2.imshow("1", edge*255)
+         #   cv2.waitKey(0)
+            return self.as_tensor(image),torch.tensor(mask, dtype=torch.float).unsqueeze(0),torch.tensor(edge, dtype=torch.float).unsqueeze(0)
          #   return self.as_tensor(image),self.as_tensor2(mask), self.as_tensor2(edge)
         else:
             return self.as_tensor(image),torch.tensor(mask, dtype=torch.float)
 
-    def binary2edge(self,mask):
-        """
-        func1: threshold(src, thresh, maxval, type[, dst]) -> retval, dst
-                https://www.cnblogs.com/FHC1994/p/9125570.html
-        func2: Canny(image, threshold1, threshold2[, edges[, apertureSize[, L2gradient]]]) -> edges
+    def distribution_map(self, mask, sigma):
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)  # 消除标注的问题孤立点
 
-        :param mask_path:
-        :return:
-        """
-        ret, mask_binary = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)  # if <0, pixel=0 else >0, pixel=255
-        mask_edge = cv2.Canny(mask_binary, 10, 150)
-        mask_edge = cv2.dilate(mask_edge, np.ones((2, 2), np.uint8), 1)
-        return mask_edge
+        dist1 = distance_transform_edt(mask)
+        dist2 = distance_transform_edt(1-mask)
+        dist = dist1 + dist2
+        dist = dist - 1
+
+        f = lambda x, sigma: 1/(np.sqrt(2*np.pi)*sigma) * np.exp(-x**2/(2*sigma**2))
+
+        bdm = f(dist, sigma)
+
+        bdm[bdm < 0] = 0
+
+        return bdm * (sigma ** 2)
 
     def __len__(self):
         return len(self.images)
@@ -142,7 +157,10 @@ class TestDataset(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-   data = Dataset('E:\dataset\datasetnew\TrainDataset',augmentations=True, hasEdg=True)
+
+  # data = Dataset('E:\dataset\datasetnew\TrainDataset',augmentations=True, hasEdg=True)
+  # data=Dataset(r'E:\dataset\Ultro\TrainDataset',augmentations=True, hasEdg=True)
+   data=Dataset(r'F:\dataset\isic2018\TrainDataset',256,192,augmentations=True, hasEdg=True)
    a,b,c= data.__getitem__(0)
    print(a)
    print(b)
@@ -150,7 +168,20 @@ if __name__ == '__main__':
    print(a.size())
    print(b.size())
    print(c.size())
-   #print(a)
+   # from torch.utils.data import DataLoader
+   # dataset_train = Dataset(r'F:\dataset\isic2018\TrainDataset',w=256 , h=192, augmentations=True, hasEdg=True)
+   # dataloader_train = DataLoader(
+   #  dataset_train,
+   #  batch_size=16,
+   #  shuffle=True,
+   #  num_workers=1,
+   #  pin_memory=True,
+   #  drop_last=True
+   # )
+   # for i, (data, label,edge) in enumerate(dataloader_train, start=1):
+   #    print(data.size())
+   #    print(label.size())
+   #    print(edge.size())
 
 
 

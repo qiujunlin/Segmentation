@@ -24,10 +24,9 @@ def eval():
 
     args = DefaultConfig()
     print('#' * 20, 'Start Evaluation', '#' * 20)
-    for dataset in tqdm.tqdm(args.testdataset, total=len(args.testdataset), position=0,
-                             bar_format='{desc:<30}{percentage:3.0f}%|{bar:50}{r_bar}'):
-        pred_path = 'E:\dataset\data\TestDataset/{}/output/'.format(dataset)
-        gt_path = 'E:\dataset\data\TestDataset/{}/masks/'.format(dataset)
+    for dataset in args.testdataset:
+        pred_path = 'E:\dataset\dataset\TestDataset/{}/output/'.format(dataset)
+        gt_path = 'E:\dataset\dataset\TestDataset/{}/masks/'.format(dataset)
         preds = os.listdir(pred_path)
         gts = os.listdir(gt_path)
         total_batch =  len(preds)

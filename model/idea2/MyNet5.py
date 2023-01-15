@@ -354,8 +354,7 @@ class MyNet5(nn.Module):
 
         d1=self.decoder_s1(d1)
         b1 = self.decoder_b1(b1)
-        out_groud =  self.gtout(d1)
-        out_boundary =  self.bdout(b1)
+
 
 
 

@@ -198,10 +198,10 @@ class DecoderBlock(nn.Module):
                  kernel_size=3, stride=1, padding=1):
         super(DecoderBlock, self).__init__()
 
-        self.conv1 = BasicConv2d(in_channels, in_channels , kernel_size=kernel_size,
+        self.conv1 = BasicConv2d(in_channels, in_channels //4 , kernel_size=kernel_size,
                                stride=stride, padding=padding,relu=True)
 
-        self.conv2 = BasicConv2d(in_channels   , out_channels, kernel_size=kernel_size,
+        self.conv2 = BasicConv2d(in_channels   //4, out_channels, kernel_size=kernel_size,
                                stride=stride, padding=padding,relu=True)
 
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
@@ -212,59 +212,6 @@ class DecoderBlock(nn.Module):
         x = self.conv2(x)
         x= self.upsample(x)
         return x
-
-
-class ASPP(nn.Module):
-    """
-    ASPP模块
-    """
-    def __init__(self, in_channels, out_channels):
-        super(ASPP, self).__init__()
-        self.pyramid1 = nn.Sequential(nn.Conv2d(in_channels=in_channels,out_channels=out_channels, kernel_size = 1, bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid2 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=6, dilation=6, bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid3 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=12, dilation=12,bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pyramid4 = nn.Sequential(nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=18, dilation=18,bias=False),
-                                      nn.BatchNorm2d(num_features=out_channels),
-                                      nn.ReLU(inplace=True)
-                                     )
-        self.pooling = nn.Sequential(nn.AdaptiveAvgPool2d((1,1)),
-                                     nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=1, bias=False),
-                                     nn.BatchNorm2d(num_features=out_channels),
-                                     nn.ReLU(inplace=True)
-                                    )
-        self.output = nn.Sequential(nn.Conv2d(in_channels=5*out_channels, out_channels=out_channels, kernel_size=1, bias=False),
-                                    nn.BatchNorm2d(num_features=out_channels),
-                                    nn.ReLU(inplace=True),
-                                    nn.Dropout(0.5)
-                                   )
-        self._initialize_weights()
-
-    def forward(self, input):
-        y1 = self.pyramid1(input)
-        y2 = self.pyramid2(input)
-        y3 = self.pyramid3(input)
-        y4 = self.pyramid4(input)
-        y5 = F.interpolate(self.pooling(input), size=y4.size()[2:], mode='bilinear', align_corners=True)
-        out = self.output(torch.cat([y1,y2,y3,y4,y5],1))
-        return out
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-
 
 
 
@@ -313,8 +260,6 @@ class MyNet4(nn.Module):
         self.bdatt2 =BCA(xin_channels=channel,yin_channels=channel,mid_channels=channel)
         self.bdatt1 =BCA(xin_channels=channel,yin_channels=channel,mid_channels=channel)
 
-
-        self.aspp =ASPP(in_channels=2048,out_channels=channel)
 
         self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
         self.upsample2 = nn.Upsample(scale_factor=8, mode='bilinear')
@@ -392,7 +337,7 @@ class MyNet4(nn.Module):
         d2 = self.bdatt2(d2, b2)
 
         d2=self.decoder_s2(d2)
-        b2=self.decoder_b2(b3)
+        b2=self.decoder_b2(b2)
 
 
 
