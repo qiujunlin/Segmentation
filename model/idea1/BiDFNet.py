@@ -199,10 +199,10 @@ if __name__ == '__main__':
     model = BiDFNet().cuda()
     input_tensor = torch.randn(1, 3, 352, 352).cuda()
 
-    model = BiDFNet().cuda()
+    model = BiDFNet()#.cuda()
     total = sum([param.nelement() for param in model.parameters()])
 
-    print("Number of parameter: %.2fM" % (total / 1e6))
+   # print("Number of parameter: %.2fM" % (total / 1e6))
 
     # input_tensor = torch.randn(1, 3, 352, 352).cuda()
   #  summary(model=model, input_size=(3, 352, 352), batch_size=-1, device='cuda')
@@ -215,3 +215,10 @@ if __name__ == '__main__':
     # a =torch.rand(1,64,44,44)
     # b =torch.rand(1,64,44,44)
     # print(net(a,b).size())
+    from thop import profile
+
+    input = torch.randn(1, 3, 352, 352)
+    flops, params = profile(model, inputs=(input,))
+    print('flops: ', flops, 'params: ', params)
+    print('flops: %.2f G, params: %.2f M' % (flops / 1000000000.0, params / 1000000.0))
+

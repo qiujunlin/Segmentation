@@ -5,7 +5,15 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+from model.idea2.BGUnet import  BDUnet
 from model.idea2.MyNet4 import  MyNet4
+from model.idea2.compare.model.BaseNet import  CPFNet
+from model.idea2.compare.Models.networks.network import  Comprehensive_Atten_Unet
+from model.idea2.compare.UNets import  AttU_Net
+from model.idea2.compare.UNets import  U_Net
+from model.idea2.compare.UNets import  NestedUNet
+from model.idea2.compare.core.res_unet import  ResUnet
+from model.idea2.compare.core.res_unet_plus import  ResUnetPlusPlus
 from dataset.Dataset import  TestDataset
 import  cv2
 
@@ -15,10 +23,13 @@ parser.add_argument('--pth_path', type=str, default='F:\checkpoint\model_MyNet4_
 if __name__ == '__main__':
 
  for _data_name in ['CVC-300', 'CVC-ClinicDB', 'Kvasir', 'CVC-ColonDB', 'ETIS-LaribPolypDB']:
+ #for _data_name in ['test']:
  #or _data_name in ['test','val']:
-    data_path = r'E:\dataset\dataset\TestDataset\{}\\'.format(_data_name)
-    save_path = r'E:\dataset\dataset\TestDataset\{}\output/'.format(_data_name)
-    edge_save_path = r'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
+   # data_path = r'F:\dataset\isic2018\TestDataset\{}\\'.format(_data_name)
+    data_path = r'E:\dataset\dataset\TestDataset\\{}\\'.format(_data_name)
+    #save_path = r'F:\dataset\isic2018\TestDataset\{}\output\{}/'.format(_data_name,'Comprehensive_Atten_Unet')
+    save_path = r'E:\dataset\dataset\TestDataset\\{}\output/'.format(_data_name)
+    #edge_save_path = r'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
    # edge_save_path = 'E:\dataset\dataset\TestDataset\{}\edgeoutput/'.format(_data_name)
     opt = parser.parse_args()
     model = MyNet4()
@@ -47,7 +58,8 @@ if __name__ == '__main__':
         gt /= (gt.max() + 1e-8)
       #  img =  img.permute(0,2,3,1)
         img = img.cuda()
-        a,b,c,d,e,f,g,h = model(img)
+        a,b,c,d,e,f,g,h= model(img)
+      #  a= model(img)
         pred = F.upsample(e, size=gt.shape[2:], mode='bilinear', align_corners=False)[0,0]
         edge_pred = F.upsample(a, size=gt.shape[2:], mode='bilinear', align_corners=False)[0,0]
         pred[torch.where(pred > 0)] /= (pred > 0).float().mean()
@@ -61,5 +73,5 @@ if __name__ == '__main__':
         #path =save_path+  "".join(name) 0.895 0.930 .911 :0.789 0.807
         #path =save_path+  "".join(name) 0.895 0.931 .911 :0.791 0.807
         cv2.imwrite(save_path+name[0], np.round(pred))
-        cv2.imwrite(edge_save_path+name[0], np.round(edge_pred))
+      #  cv2.imwrite(edge_save_path+name[0], np.round(edge_pred))
 

@@ -28,8 +28,14 @@ from torch.autograd import Variable
 from dataset.Dataset2 import Dataset
 from dataset.Dataset2 import TestDataset
 
-from model.idea2.MyNet5 import MyNet5
-
+from model.idea2.MyNet4 import MyNet4
+from   model.idea2.compare.model.BaseNet import CPFNet
+from model.idea2.compare.Models.networks.network import Comprehensive_Atten_Unet
+from model.idea2.compare.UNets import U_Net
+from model.idea2.compare.UNets import AttU_Net
+from model.idea2.compare.UNets import NestedUNet
+from model.idea2.compare.core.res_unet_plus import ResUnetPlusPlus
+from model.idea2.compare.core.res_unet import ResUnet
 
 
 def valid(model, dataset,args):
@@ -50,9 +56,10 @@ def valid(model, dataset,args):
             gt = np.asarray(gt, np.float32)
             gt /= (gt.max() + 1e-8)
             image = image.cuda()
-            a, b, c, d, e, f, g, h = model(image)
+            #a, b, c, d, e, f, g, h = model(image)
+            pred = model(image)
             # eval Dice
-            res = F.upsample(e, size=gt.shape[2:], mode='bilinear', align_corners=False)
+            res = F.upsample(pred, size=gt.shape[2:], mode='bilinear', align_corners=False)
             res = res.sigmoid().data.cpu().numpy().squeeze()
             res = (res - res.min()) / (res.max() - res.min() + 1e-8)
             input = res
@@ -88,12 +95,11 @@ def bdm_loss(pred, target, thresh=0.002, min_ratio=0.1):
 
     return loss
 
-
 def train(args, model, optimizer,dataloader_train,total):
     Dicedict = {'CVC-300': [], 'CVC-ClinicDB': [], 'Kvasir': [], 'CVC-ColonDB': [], 'ETIS-LaribPolypDB': [],
                  'test': []}
-    lr_lambda = lambda epoch: ((1 + math.cos(epoch * math.pi / args.num_epochs)) / 2) * (1 - 0.01) + 0.01
-
+   # lr_lambda = lambda epoch: ((1 + math.cos(epoch * math.pi / args.num_epochs)) / 2) * (1 - 0.01) + 0.01
+    lr_lambda = lambda epoch: 1.0 - pow((epoch / args.num_epochs), 0.9)
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     best_dice=0
     best_epo =0
@@ -102,7 +108,7 @@ def train(args, model, optimizer,dataloader_train,total):
         size_rates = [ 0.75,1,1.25]  # replace your desired scale, try larger scale for better accuracy in small object
         model.train()
         loss_record = []
-        for i, (data, label) in enumerate(dataloader_train, start=1):
+        for i, (data, label,edgs) in enumerate(dataloader_train, start=1):
             for rate in size_rates:
 
                 #dataprepare
@@ -111,25 +117,29 @@ def train(args, model, optimizer,dataloader_train,total):
                     label = Variable(label).cuda()
                     edgs = Variable(edgs).cuda()
 
-                trainsize = int(round(args.trainsize * rate / 32) * 32)
+                    #  trainsize = int(round(args.trainsize * rate / 32) * 32)
+                crop_height = int(round(args.crop_height * rate / 32) * 32)
+                crop_width = int(round(args.crop_width * rate / 32) * 32)
 
-                if   rate != 1:
-                  data  = F.upsample(data, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
-                  label  = F.upsample(label, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
-                  edgs = F.upsample(edgs, size=(trainsize, trainsize), mode='bilinear', align_corners=True)
+                if rate != 1:
+                    data = F.upsample(data, size=(crop_height, crop_width), mode='bilinear', align_corners=True)
+                    label = F.upsample(label, size=(crop_height, crop_width), mode='bilinear', align_corners=True)
+                    edgs = F.upsample(edgs, size=(crop_height, crop_width), mode='bilinear', align_corners=True)
 
                 """
                 网络训练 标准三步
                 """
                 optimizer.zero_grad()
-                a, b, c, d, e,f,g,h =model(data)
+              #  a, b, c, d, e,f,g,h =model(data)
+                pred=  model(data)
 
                 """
                 计算损失函数
                 """
-                lossb = bdm_loss(a,edgs) + bdm_loss(b,edgs) + bdm_loss(c,edgs) + bdm_loss(d,edgs)
-                lossg = u.structure_loss(e,label)+u.structure_loss(f,label)+u.structure_loss(g,label)+u.structure_loss(h,label)
-                loss = lossb +lossg
+               # lossb = bdm_loss(a,edgs) + bdm_loss(b,edgs) + bdm_loss(c,edgs) + bdm_loss(d,edgs)
+                #lossg = u.structure_loss(e,label)+u.structure_loss(f,label)+u.structure_loss(g,label)+u.structure_loss(h,label)
+                #loss = lossb +lossg
+                loss = u.structure_loss(pred,label)
                 loss.backward()
 
                 u.clip_gradient(optimizer, args.clip)
@@ -145,10 +155,10 @@ def train(args, model, optimizer,dataloader_train,total):
                           format(datetime.now(), epoch, args.num_epochs, i, len(dataloader_train), loss_train_mean, scheduler.get_last_lr()[0]))
         scheduler.step()
         if (epoch + 1) % 1 == 0:
-            for dataset in args.testdataset:
-                dataset_dice = valid(model, dataset,args)
-                print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
-                Dicedict[dataset].append(dataset_dice)
+            # for dataset in args.testdataset:
+            #     dataset_dice = valid(model, dataset,args)
+            #     print("dataset:{},Dice:{:.4f}".format(dataset, dataset_dice))
+            #     Dicedict[dataset].append(dataset_dice)
             meandice = valid(model, 'test',args )
             print("dataset:{},Dice:{:.4f}".format("test", meandice))
             Dicedict['test'].append(meandice)
@@ -158,7 +168,8 @@ def train(args, model, optimizer,dataloader_train,total):
                 checkpoint_dir = "/root/autodl-fs/checkpoints"
                 filename = 'model_{}_{:03d}_{:.4f}.pth.tar'.format(args.net_work, epoch,best_dice)
                 checkpointpath = os.path.join(checkpoint_dir, filename)
-                torch.save(model.state_dict(), checkpointpath)
+                if best_dice>0.7:
+                  torch.save(model.state_dict(), checkpointpath)
                 print('#############  Saving   best  ##########################################BestAvgDice:{}'.format(best_dice))
         print('bestepo:{:03d} ,bestdice :{:.4f}'.format(best_epo,best_dice))
 
@@ -187,7 +198,8 @@ def main():
     load model
     """
 
-    model_all={'MyNet5':MyNet5()}
+    model_all={'MyNet4':MyNet4(),'CPFNet':CPFNet(),'Comprehensive_Atten_Unet':Comprehensive_Atten_Unet(),
+              'U_Net':U_Net(),'AttU_Net':AttU_Net(),'NestedUNet':NestedUNet(),'ResUnetPlusPlus':ResUnetPlusPlus(),'ResUnet':ResUnet()}
 
     model=model_all[args.net_work]
     print(args.net_work)

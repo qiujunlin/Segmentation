@@ -64,7 +64,7 @@ class Comprehensive_Atten_Unet(nn.Module):
 
         self.scale_att = scale_atten_convblock(in_size=16, out_size=4)
         # final conv (without any concat)
-        self.final = nn.Sequential(nn.Conv2d(4, n_classes, kernel_size=1), nn.Softmax2d())
+        self.final = nn.Sequential(nn.Conv2d(4, n_classes, kernel_size=1))
 
     def forward(self, inputs):
         # Feature Extraction
@@ -132,6 +132,6 @@ import numpy as np
 if __name__ == '__main__':
     net = Comprehensive_Atten_Unet().cuda()
     from torchsummary import summary
-    a=  torch.rand(1,3,224,300).cuda()
+    a=  torch.rand(16,3,224,300).cuda()
     print(net(a).size())
   #  summary(model=net, input_size=(3, 352, 352), batch_size=-1, device='cuda')

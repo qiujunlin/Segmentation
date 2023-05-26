@@ -215,10 +215,10 @@ class DecoderBlock(nn.Module):
 
 
 
-class BDUnet(nn.Module):
+class BGUnet(nn.Module):
     # res2net based encoder decoder
     def __init__(self, channel=64,numclass=1):
-        super(BDUnet, self).__init__()
+        super(BGUnet, self).__init__()
         # ---- ResNet Backbone ----,
         self.resnet = res2net50_v1b_26w_4s(pretrained=True)
         # ---- Receptive Field Block like module ----

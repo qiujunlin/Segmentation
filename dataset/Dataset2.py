@@ -25,9 +25,9 @@ class Dataset(torch.utils.data.Dataset):
         if self.augmentations == True:
             print("use data augmentation!")
             self.transform = A.Compose([
-                # A.OneOf([
-                #     A.RandomResizedCrop(self.w, self.h, scale=(0.75, 1))
-                # ], p=0.5),
+                A.OneOf([
+                    A.RandomResizedCrop(self.h, self.w, scale=(0.75, 1))
+                ], p=0.5),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, rotate_limit=45, p=0.5),
@@ -78,8 +78,6 @@ class Dataset(torch.utils.data.Dataset):
         if self.edge_flage:
 
             edge = self.distribution_map(mask,0.5)
-         #   mask = mask / 255.0
-          #  edge = edge / 255.0
             # cv2.imwrite("E:/1.png",mask)
         #    cv2.imshow("1", edge*255)
          #   cv2.waitKey(0)

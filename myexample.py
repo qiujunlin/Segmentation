@@ -632,14 +632,109 @@ def  test22():
         label =  cv2.dilate(label,np.ones((5, 5), np.uint8),1)
         cv2.imshow("1",  label)
         cv2.waitKey(0)
+def test8():
+    for f in os.listdir(r"E:\dataset\BUSI\TrainDataset\masks"):
+        path = r"E:\dataset\BUSI\TrainDataset\masks\\" + f
+        new_name = path.replace("_mask.png", ".png")
+        os.rename(path, new_name)
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 0 设置字体
+plt.rc('font',family='Times New Roman', size=15)
+
+# 1.1 定义sigmoid函数
+def sigmoid(x):
+    return 1. / (1 + np.exp(-x))
+# 1.2 定义tanh函数
+def tanh(x):
+    return (np.exp(x) - np.exp(-x)) / (np.exp(x) + np.exp(-x))
+# 1.3 定义relu函数
+def relu(x):
+    return np.where(x < 0, 0, x)
+# 1.4 定义prelu函数
+def prelu(x):
+    return np.where(x<0, x * 0.5, x)
+
+# 2.1 定义绘制函数sigmoid函数
+def plot_sigmoid(fig):
+    x = np.arange(-10, 10, 0.1)
+    y = sigmoid(x)
+    ax = fig.add_subplot(2,2,1)#表示前面两个1表示1*1大小，最后面一个1表示第1个
+    ax.spines['top'].set_color('none')#ax.spines设置坐标轴位置，set_color设置坐标轴边的颜色
+    ax.spines['right'].set_color('none')
+    ax.spines['left'].set_position(('data', 0))
+    ax.plot(x, y,color="black", lw=3)#设置曲线颜色，线宽
+    plt.xlim([-10.05, 10.05])#设置坐标轴范围
+    plt.ylim([-0.02, 1.02])
+   # ax.set_title('(a) Sigmod')
+   # plt.
+  #  plt.savefig()
+   # plt.show()#显示绘图
+# 2.2 定义绘制函数tanh函数
+def plot_tanh(fig):
+    x = np.arange(-10, 10, 0.1)
+    y = tanh(x)
+    ax = fig.add_subplot(2,2,2)
+    ax.spines['top'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.spines['left'].set_position(('data', 0))
+    ax.spines['bottom'].set_position(('data', 0))
+    ax.plot(x, y, color="black", lw=3)
+
+    ax.set_yticks([-1.0, -0.5, 0.5, 1.0])
+    ax.set_xticks([-10, -5, 5, 10])
+    plt.xlim([-10.05, 10.05])#设置坐标轴范围
+    plt.ylim([-0.02, 1.02])
+
+  #  ax.set_title('(a) Tanh')
+# 2.3 定义绘制函数relu函数
+def plot_relu(fig):
+    x = np.arange(-10, 10, 0.1)
+    y = relu(x)
+    ax = fig.add_subplot(2,2,3)
+    ax.spines['top'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.spines['left'].set_position(('data', 0))
+    ax.plot(x, y, color="black", lw=3)
+    plt.xlim([-10.05, 10.05])#设置坐标轴范围
+    plt.ylim([-0.02, 1.02])
+    ax.set_yticks([2, 4, 6, 8, 10])
+  #  ax.set_title('(c) ReLU')
+
+# 2.4 定义绘制函数prelu函数
+def plot_prelu(fig):
+    x = np.arange(-10, 10, 0.1)
+    y = prelu(x)
+
+    ax = fig.add_subplot(2,2,4)
+    ax.spines['top'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.spines['left'].set_position(('data', 0))
+    ax.spines['bottom'].set_position(('data', 0))
+    ax.plot(x, y, color="black", lw=3)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+  #  ax.set_title('(d) Leaky ReLU (a=0.5)')
+
+
+
+def plt1():
+    fig = plt.figure()
+    plot_sigmoid(fig)
+    plot_tanh(fig)
+    plot_relu(fig)
+    plot_prelu(fig)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+
+    plt.tight_layout()
+    plt.show()
+
+
+
+
 if __name__ == '__main__':
-    test22()
-# if __name__ == '__main__':
-#      model=Fusion(32)
-#
-#      a=torch.rand(2,32,256,256)
-#      b=torch.rand(2,32,512,512)
-#    #
-#    #  print(a(b).size())
-#      print(model(a,b))
-#      print(model(a,b).size())
+   plt1()
+

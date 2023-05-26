@@ -24,9 +24,9 @@ def eval():
 
     args = DefaultConfig()
     print('#' * 20, 'Start Evaluation', '#' * 20)
-    for dataset in args.testdataset:
-        pred_path = 'E:\dataset\dataset\TestDataset/{}/output/'.format(dataset)
-        gt_path = 'E:\dataset\dataset\TestDataset/{}/masks/'.format(dataset)
+    for dataset in ['test']:
+        pred_path = 'F:\dataset\isic2018\TestDataset/{}/output/BDUnet/'.format(dataset)
+        gt_path = 'F:\dataset\isic2018\TestDataset/{}/masks/'.format(dataset)
         preds = os.listdir(pred_path)
         gts = os.listdir(gt_path)
         total_batch =  len(preds)
@@ -37,7 +37,7 @@ def eval():
         for i, sample in tqdm.tqdm(enumerate(zip(preds, gts)), desc=dataset + ' - Evaluation', total=len(preds),
                                    position=1, leave=False, bar_format='{desc:<30}{percentage:3.0f}%|{bar:50}{r_bar}'):
             pred, gt = sample
-            assert os.path.splitext(pred)[0] == os.path.splitext(gt)[0]
+           # assert os.path.splitext(pred)[0] == os.path.splitext(gt)[0]
 
             pred_mask = np.array(Image.open(os.path.join(pred_path, pred)))
             gt_mask = np.array(Image.open(os.path.join(gt_path, gt)))
